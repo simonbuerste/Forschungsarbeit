@@ -98,11 +98,14 @@ latent_loss = -0.5 * tf.reduce_sum(1.0 + 2.0 * sd - tf.square(mn) - tf.exp(2.0 *
 loss = tf.reduce_mean(img_loss + latent_loss)
 optimizer = tf.train.AdamOptimizer(0.0005).minimize(loss)
 
+# Add ops to save and restore all the variables.
+saver = tf.train.Saver()
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     # Train the VAE
-    for i in range(2000):
+    for i in range(200):
         sess.run(train_init)
         try:
             sess.run(optimizer, feed_dict={keep_prob: 0.8})
@@ -110,22 +113,19 @@ with tf.Session() as sess:
             pass
 
         if not i % 200:
-            sess.run(train_init)
             try:
                 ls, d, i_ls, d_ls, mu, sigm = sess.run([loss, dec, img_loss, latent_loss, mn, sd],
-                                                           feed_dict={keep_prob: 1.0})
+                                                       feed_dict={keep_prob: 1.0})
                 print(i, ls, np.mean(i_ls), np.mean(d_ls))
             except tf.errors.OutOfRangeError:
                 pass
-            #plt.imshow(np.reshape(batch[0], [28, 28]), cmap='gray')
-            #plt.show()
-            #plt.imshow(d[0], cmap='gray')
-            #plt.show()
 
-# Generating new Samples
-randoms = [np.random.normal(0, 1, n_latent) for _ in range(10)]
-imgs = sess.run(dec, feed_dict={sampled: randoms, keep_prob: 1.0})
-imgs = [np.reshape(imgs[i], [28, 28]) for i in range(len(imgs))]
+    saver.save(sess, '/home/s1279/Forschungsarbeit/Models/VAE/VAE_decoder.ckpt')
+
+    # Generating new Samples
+    randoms = [np.random.normal(0, 1, n_latent) for _ in range(10)]
+    imgs = sess.run(dec, feed_dict={sampled: randoms, keep_prob: 1.0})
+    imgs = [np.reshape(imgs[i], [28, 28]) for i in range(len(imgs))]
 
 for img in imgs:
     plt.figure(figsize=(1, 1))
