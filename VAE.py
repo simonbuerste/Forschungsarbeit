@@ -4,23 +4,43 @@ import matplotlib.pyplot as plt
 
 from tensorflow.examples.tutorials.mnist import input_data
 
-mnist = input_data.read_data_sets('MNIST_data')
-
-tf.reset_default_graph()
+mnist = input_data.read_data_sets('/home/s1279/no_backup/s1279/MNIST_data')
 
 batch_size = 64
+shuffle_size = 10000  # Set shuffle_size to len(Input) if no shuffling is required
 
-# Defining the Input and Output Data
-X_in = tf.placeholder(dtype=tf.float32, shape=[None, 28, 28], name='X')
-Y = tf.placeholder(dtype=tf.float32, shape=[None, 28, 28], name='Y')
-Y_flat = tf.reshape(Y, shape=[-1, 28 * 28])
+# Defining the Input Data
+train, val, test = mnist.train, mnist.validation, mnist.test
+
+# Create Dataset and Iterator
+# Create Training Dataset, shuffle and batch it
+train_data = tf.data.Dataset.from_tensor_slices((train.images, train.labels))
+train_data = train_data.shuffle(shuffle_size)  # if you want to shuffle the Data
+train_data = train_data.batch(batch_size)
+
+# Create Test Dataset
+test_data = tf.data.Dataset.from_tensor_slices((test.images, test.labels))
+test_data = test_data.batch(batch_size)
+
+# Create Validation Dataset
+val_data = tf.data.Dataset.from_tensor_slices((val.images, val.labels))
+val_data = val_data.batch(batch_size)
+
+# Create One Iterator and initialize with different datasets
+iterator = tf.data.Iterator.from_structure(train_data.output_types, train_data.output_shapes)
+img, label = iterator.get_next()
+
+train_init = iterator.make_initializer(train_data)  # initializer for train_data
+test_init = iterator.make_initializer(test_data)    # initializer for test_data
+
 keep_prob = tf.placeholder(dtype=tf.float32, shape=(), name='keep_prob')
 
+# Set Dimensions for Encoder and Decoder
 dec_in_channels = 1
 n_latent = 8
 
 reshaped_dim = [-1, 7, 7, dec_in_channels]
-inputs_decoder = 49 * dec_in_channels / 2
+inputs_decoder = int(49 * dec_in_channels / 2)
 
 
 # Define a Leacky ReLu Function
@@ -29,16 +49,16 @@ def lrelu(x, alpha=0.3):
 
 
 # Defining the Encoder
-def encoder(X_in, keep_prob):
+def encoder(encoder_input, prob_keep):
     activation = lrelu
     with tf.variable_scope("encoder", reuse=None):
-        X = tf.reshape(X_in, shape=[-1, 28, 28, 1])
+        X = tf.reshape(encoder_input, shape=[-1, 28, 28, 1])
         x = tf.layers.conv2d(X, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
-        x = tf.nn.dropout(x, keep_prob)
+        x = tf.nn.dropout(x, prob_keep)
         x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
-        x = tf.nn.dropout(x, keep_prob)
+        x = tf.nn.dropout(x, prob_keep)
         x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=1, padding='same', activation=activation)
-        x = tf.nn.dropout(x, keep_prob)
+        x = tf.nn.dropout(x, prob_keep)
         x = tf.contrib.layers.flatten(x)
         mn = tf.layers.dense(x, units=n_latent)
         sd = 0.5 * tf.layers.dense(x, units=n_latent)
@@ -49,15 +69,15 @@ def encoder(X_in, keep_prob):
 
 
 # Defining the Decoder
-def decoder(sampled_z, keep_prob):
+def decoder(sampled_z, prob_keep):
     with tf.variable_scope("decoder", reuse=None):
         x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu)
-        x = tf.layers.dense(x, units=inputs_decoder * 2, activation=lrelu)
+        x = tf.layers.dense(x, units=inputs_decoder * 2 + 1, activation=lrelu)
         x = tf.reshape(x, reshaped_dim)
         x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=2, padding='same', activation=tf.nn.relu)
-        x = tf.nn.dropout(x, keep_prob)
+        x = tf.nn.dropout(x, prob_keep)
         x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
-        x = tf.nn.dropout(x, keep_prob)
+        x = tf.nn.dropout(x, prob_keep)
         x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
 
         x = tf.contrib.layers.flatten(x)
@@ -67,31 +87,40 @@ def decoder(sampled_z, keep_prob):
 
 
 # Bringing together Encoder and Decoder
-sampled, mn, sd = encoder(X_in, keep_prob)
+sampled, mn, sd = encoder(img, keep_prob)
 dec = decoder(sampled, keep_prob)
 
 # Computing Loss and Enforcing a Gaussian Distribution
 unreshaped = tf.reshape(dec, [-1, 28 * 28])
+Y_flat = tf.reshape(img, [-1, 28 * 28])
 img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, Y_flat), 1)
 latent_loss = -0.5 * tf.reduce_sum(1.0 + 2.0 * sd - tf.square(mn) - tf.exp(2.0 * sd), 1)
 loss = tf.reduce_mean(img_loss + latent_loss)
 optimizer = tf.train.AdamOptimizer(0.0005).minimize(loss)
-sess = tf.Session()
-sess.run(tf.global_variables_initializer())
 
-# Train the VAE
-for i in range(30000):
-    batch = [np.reshape(b, [28, 28]) for b in mnist.train.next_batch(batch_size=batch_size)[0]]
-    sess.run(optimizer, feed_dict={X_in: batch, Y: batch, keep_prob: 0.8})
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
 
-    if not i % 200:
-        ls, d, i_ls, d_ls, mu, sigm = sess.run([loss, dec, img_loss, latent_loss, mn, sd],
-                                               feed_dict={X_in: batch, Y: batch, keep_prob: 1.0})
-        #plt.imshow(np.reshape(batch[0], [28, 28]), cmap='gray')
-        #plt.show()
-        #plt.imshow(d[0], cmap='gray')
-        #plt.show()
-        print(i, ls, np.mean(i_ls), np.mean(d_ls))
+    # Train the VAE
+    for i in range(2000):
+        sess.run(train_init)
+        try:
+            sess.run(optimizer, feed_dict={keep_prob: 0.8})
+        except tf.errors.OutOfRangeError:
+            pass
+
+        if not i % 200:
+            sess.run(train_init)
+            try:
+                ls, d, i_ls, d_ls, mu, sigm = sess.run([loss, dec, img_loss, latent_loss, mn, sd],
+                                                           feed_dict={keep_prob: 1.0})
+                print(i, ls, np.mean(i_ls), np.mean(d_ls))
+            except tf.errors.OutOfRangeError:
+                pass
+            #plt.imshow(np.reshape(batch[0], [28, 28]), cmap='gray')
+            #plt.show()
+            #plt.imshow(d[0], cmap='gray')
+            #plt.show()
 
 # Generating new Samples
 randoms = [np.random.normal(0, 1, n_latent) for _ in range(10)]
