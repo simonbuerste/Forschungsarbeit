@@ -1,13 +1,21 @@
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
 
 from tensorflow.examples.tutorials.mnist import input_data
+from keras.backend.tensorflow_backend import set_session
 
-mnist = input_data.read_data_sets('/home/s1279/no_backup/s1279/MNIST_data')
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+set_session(tf.Session(config=config))
+
+mnist = input_data.read_data_sets('/MNIST_data')
 
 batch_size = 64
-shuffle_size = 10000  # Set shuffle_size to len(Input) if no shuffling is required
+shuffle_size = 10000
 
 # Defining the Input Data
 train, val, test = mnist.train, mnist.validation, mnist.test
@@ -105,7 +113,7 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     # Train the VAE
-    for i in range(200):
+    for i in range(10000):
         sess.run(train_init)
         try:
             sess.run(optimizer, feed_dict={keep_prob: 0.8})
@@ -120,14 +128,4 @@ with tf.Session() as sess:
             except tf.errors.OutOfRangeError:
                 pass
 
-    saver.save(sess, '/home/s1279/Forschungsarbeit/Models/VAE/VAE_decoder.ckpt')
-
-    # Generating new Samples
-    randoms = [np.random.normal(0, 1, n_latent) for _ in range(10)]
-    imgs = sess.run(dec, feed_dict={sampled: randoms, keep_prob: 1.0})
-    imgs = [np.reshape(imgs[i], [28, 28]) for i in range(len(imgs))]
-
-for img in imgs:
-    plt.figure(figsize=(1, 1))
-    plt.axis('off')
-    plt.imshow(img, cmap='gray')
+    saver.save(sess, 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/VAE_decoder.ckpt')
