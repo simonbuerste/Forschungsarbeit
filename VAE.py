@@ -1,8 +1,10 @@
 import tensorflow as tf
 import numpy as np
 
+import ImportDataset
+
 from tensorflow.examples.tutorials.mnist import input_data
-from keras.backend.tensorflow_backend import set_session
+from keras import backend as K
 
 import os
 
@@ -10,29 +12,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-set_session(tf.Session(config=config))
 
-mnist = input_data.read_data_sets('/MNIST_data')
 
 batch_size = 64
 shuffle_size = 10000
+fetch_size = 64
 
-# Defining the Input Data
-train, val, test = mnist.train, mnist.validation, mnist.test
-
-# Create Dataset and Iterator
-# Create Training Dataset, shuffle and batch it
-train_data = tf.data.Dataset.from_tensor_slices((train.images, train.labels))
-train_data = train_data.shuffle(shuffle_size)  # if you want to shuffle the Data
-train_data = train_data.batch(batch_size)
-
-# Create Test Dataset
-test_data = tf.data.Dataset.from_tensor_slices((test.images, test.labels))
-test_data = test_data.batch(batch_size)
-
-# Create Validation Dataset
-val_data = tf.data.Dataset.from_tensor_slices((val.images, val.labels))
-val_data = val_data.batch(batch_size)
+train_data, test_data, val_data = ImportDataset.importmnist(batch_size, shuffle_size, fetch_size)
 
 # Create One Iterator and initialize with different datasets
 iterator = tf.data.Iterator.from_structure(train_data.output_types, train_data.output_shapes)
@@ -71,7 +57,7 @@ def encoder(encoder_input, prob_keep):
         mn = tf.layers.dense(x, units=n_latent)
         sd = 0.5 * tf.layers.dense(x, units=n_latent)
         epsilon = tf.random_normal(tf.stack([tf.shape(x)[0], n_latent]))
-        z = mn + tf.multiply(epsilon, tf.exp(sd))
+        z = tf.add(mn, tf.multiply(epsilon, tf.exp(sd)), name="op_to_restore_encoder")
 
         return z, mn, sd
 
@@ -90,7 +76,7 @@ def decoder(sampled_z, prob_keep):
 
         x = tf.contrib.layers.flatten(x)
         x = tf.layers.dense(x, units=28 * 28, activation=tf.nn.sigmoid)
-        img = tf.reshape(x, shape=[-1, 28, 28])
+        img = tf.reshape(x, shape=[-1, 28, 28], name="op_to_restore_decoder")
         return img
 
 
@@ -109,11 +95,12 @@ optimizer = tf.train.AdamOptimizer(0.0005).minimize(loss)
 # Add ops to save and restore all the variables.
 saver = tf.train.Saver()
 
+K.set_session(tf.Session(config=config))
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     # Train the VAE
-    for i in range(10000):
+    for i in range(50):
         sess.run(train_init)
         try:
             sess.run(optimizer, feed_dict={keep_prob: 0.8})
@@ -128,4 +115,4 @@ with tf.Session() as sess:
             except tf.errors.OutOfRangeError:
                 pass
 
-    saver.save(sess, 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/VAE_decoder.ckpt')
+    print(saver.save(sess, 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/VAE_decoder'))
