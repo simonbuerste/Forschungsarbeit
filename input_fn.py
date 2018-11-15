@@ -32,3 +32,20 @@ def importmnist(batch_size, shuffle_size, fetch_size):
     val_data = val_data.prefetch(buffer_size=fetch_size)
 
     return train_data, test_data, val_data
+
+def input_fn(mode, data, params):
+    """ Input Function for the Model
+
+    Args:
+        mode: (string) 'train' 'eval' or something similar. At Training, Data will be shuffled and we have multiple epochs
+        data: (tf.Dataset) COntains the Data
+        Params: (Parameters) contains Parameters relevant for Data Preparation (params.num_epochs, params.batch_size,..)
+
+    """
+    
+    if (mode == "train"):
+        buffer_size = params.buffer_size
+    else:
+        buffer_size = 1
+
+

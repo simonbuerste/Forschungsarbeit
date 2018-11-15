@@ -15,14 +15,15 @@ config.gpu_options.allow_growth = True
 set_session(tf.Session(config=config))
 
 # Add ops to save and restore all the variables.
-saver = tf.train.Saver()
+#saver = tf.train.Saver()
+imported_meta = tf.train.import_meta_graph('C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/VAE_decoder.meta')
 
 with tf.Session() as sess:
     # Restore graph and restore weights
-    saver.restore(sess, 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/VAE_decoder')
+    imported_meta.restore(sess, tf.train.latest_checkpoint('C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'))
 
     # Generating new Samples
-    randoms = [np.random.normal(0, 1, VAE.n_latent) for _ in range(2)]
+    randoms = tf.random_normal(mean=0, stddev=1, shape=[1, VAE.n_latent])
     imgs = sess.run(VAE.decoder(randoms, 1.0))
     imgs = [np.reshape(imgs[i], [28, 28]) for i in range(len(imgs))]
 
