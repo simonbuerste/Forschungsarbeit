@@ -1,8 +1,5 @@
 import tensorflow as tf
 
-# Define Variable for keep_Probability (Value will change depending on Session)
-keep_prob = tf.placeholder(dtype=tf.float32, shape=(), name='keep_prob')
-
 # Set Dimensions for Encoder and Decoder
 dec_in_channels = 1
 n_latent = 8
@@ -19,51 +16,120 @@ def lrelu(x, alpha=0.3):
 # Defining the Encoder
 def encoder(encoder_input, prob_keep):
     activation = lrelu
-    with tf.variable_scope("encoder", reuse=tf.AUTO_REUSE):
-        X = tf.reshape(encoder_input, shape=[-1, 28, 28, 1])
-        x = tf.layers.conv2d(X, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
-        x = tf.nn.dropout(x, prob_keep)
-        x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
-        x = tf.nn.dropout(x, prob_keep)
-        x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=1, padding='same', activation=activation)
-        x = tf.nn.dropout(x, prob_keep)
-        x = tf.contrib.layers.flatten(x)
-        mn = tf.layers.dense(x, units=n_latent)
-        sd = 0.5 * tf.layers.dense(x, units=n_latent)
-        epsilon = tf.random_normal(tf.stack([tf.shape(x)[0], n_latent]))
-        z = tf.add(mn, tf.multiply(epsilon, tf.exp(sd)))
+    X = tf.reshape(encoder_input, shape=[-1, 28, 28, 1])
+    x = tf.layers.conv2d(X, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
+    x = tf.nn.dropout(x, prob_keep)
+    x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
+    x = tf.nn.dropout(x, prob_keep)
+    x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=1, padding='same', activation=activation)
+    x = tf.nn.dropout(x, prob_keep)
+    x = tf.contrib.layers.flatten(x)
+    mn = tf.layers.dense(x, units=n_latent)
+    sd = 0.5 * tf.layers.dense(x, units=n_latent)
+    epsilon = tf.random_normal(tf.stack([tf.shape(x)[0], n_latent]))
+    z = tf.add(mn, tf.multiply(epsilon, tf.exp(sd)))
 
-        return z, mn, sd
+    return z, mn, sd
 
 
 # Defining the Decoder
 def decoder(sampled_z, prob_keep):
-    with tf.variable_scope("decoder", reuse=tf.AUTO_REUSE):
-        x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu)
-        x = tf.layers.dense(x, units=inputs_decoder * 2 + 1, activation=lrelu)
-        x = tf.reshape(x, reshaped_dim)
-        x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=2, padding='same', activation=tf.nn.relu)
-        x = tf.nn.dropout(x, prob_keep)
-        x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
-        x = tf.nn.dropout(x, prob_keep)
-        x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
+    x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu)
+    x = tf.layers.dense(x, units=inputs_decoder * 2 + 1, activation=lrelu)
+    x = tf.reshape(x, reshaped_dim)
+    x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=2, padding='same', activation=tf.nn.relu)
+    x = tf.nn.dropout(x, prob_keep)
+    x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
+    x = tf.nn.dropout(x, prob_keep)
+    x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
 
-        x = tf.contrib.layers.flatten(x)
-        x = tf.layers.dense(x, units=28 * 28, activation=tf.nn.sigmoid)
-        img = tf.reshape(x, shape=[-1, 28, 28])
-        return img
+    x = tf.contrib.layers.flatten(x)
+    x = tf.layers.dense(x, units=28 * 28, activation=tf.nn.sigmoid)
+    img = tf.reshape(x, shape=[-1, 28, 28])
+    return img
 
 
-def run_vae(img):
+def build_model(inputs, params, keep_prob):
+
+    img = inputs["img"]
     # Bringing together Encoder and Decoder
     sampled, mn, sd = encoder(img, keep_prob)
     dec = decoder(sampled, keep_prob)
     # Computing Loss and Enforcing a Gaussian Distribution
-    with tf.variable_scope("optimization", reuse=tf.AUTO_REUSE):
-        unreshaped = tf.reshape(dec, [-1, 28 * 28])
-        y_flat = tf.reshape(img, [-1, 28 * 28])
-        img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, y_flat), 1)
-        latent_loss = -0.5 * tf.reduce_sum(1.0 + 2.0 * sd - tf.square(mn) - tf.exp(2.0 * sd), 1)
-        loss = tf.reduce_mean(img_loss + latent_loss)
-        optimizer = tf.train.AdamOptimizer(0.0005).minimize(loss)
-        return optimizer, loss
+
+    unreshaped = tf.reshape(dec, [-1, 28 * 28])
+    y_flat = tf.reshape(img, [-1, 28 * 28])
+    img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, y_flat), 1)
+    latent_loss = -0.5 * tf.reduce_sum(1.0 + 2.0 * sd - tf.square(mn) - tf.exp(2.0 * sd), 1)
+    return img_loss, latent_loss, sampled
+
+
+def vae_model_fn(mode, inputs, params, reuse=False):
+    """Model vae function defining the graph operations
+
+    Args:
+        mode:   (string) 'train', 'eval', etc.
+        inputs: (dict) contains the inputs of the graph (features, labels,...)
+        params: (dict) contains hyperparameters of the model (i.e. learning_rate,...)
+        reuse:  (bool) whether to reuse Variables (weights, bias,...)
+
+    Returns:
+        model_spec: (dict) contains the graph operations or nodes needed for training / evaluation
+    """
+
+    if mode == 'train':
+        p_dropout = 0.8
+    else:
+        p_dropout = 1
+# -----------------------------------------------------------
+    # MODEL: define the layers of the model
+    with tf.variable_scope('model', reuse=reuse):
+        # Compute the output distribution of the model and the predictions
+        img_loss, latent_loss, sampled = build_model(inputs, params, p_dropout)
+
+    # Define the Loss
+    loss = tf.reduce_mean(img_loss + latent_loss)
+
+    # Define training step that minimizes the loss with the Adam optimizer
+    if mode == 'train':
+        optimizer = tf.train.AdamOptimizer(0.0005)
+        global_step = tf.train.get_or_create_global_step()
+        train_op = optimizer.minimize(loss, global_step=global_step)
+
+    # -----------------------------------------------------------
+    # METRICS AND SUMMARIES
+    # Metrics for evaluation using tf.metrics (average over whole dataset)
+    with tf.variable_scope("metrics"):
+        metrics = {
+            'loss': tf.metrics.mean(loss)
+        }
+
+    # Group the update ops for the tf.metrics
+    update_metrics_op = tf.group(*[op for _, op in metrics.values()])
+
+    # Get the op to reset the local variables used in tf.metrics
+    metric_variables = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="metrics")
+    metrics_init_op = tf.variables_initializer(metric_variables)
+
+    # Summaries for training
+    tf.summary.scalar('loss', loss)
+
+    # -----------------------------------------------------------
+    # MODEL SPECIFICATION
+    # Create the model specification and return it
+    # It contains nodes or operations in the graph that will be used for training and evaluation
+    model_spec = inputs
+    variable_init_op = tf.group(*[tf.global_variables_initializer(), tf.tables_initializer()])
+    model_spec['variable_init_op'] = variable_init_op
+    model_spec['loss'] = loss
+    model_spec['metrics_init_op'] = metrics_init_op
+    model_spec['metrics'] = metrics
+    model_spec['update_metrics'] = update_metrics_op
+    model_spec['summary_op'] = tf.summary.merge_all()
+
+    if mode == 'train':
+        model_spec['train_op'] = train_op
+    elif mode == 'cluster':
+        model_spec['sample'] = sampled
+
+    return model_spec

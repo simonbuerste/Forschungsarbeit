@@ -1,8 +1,11 @@
 import tensorflow as tf
 
-import input_fn
-import Training
+from input_fn import input_fn
+from training import train_and_evaluate
+from VAE import vae_model_fn
 from keras import backend as K
+
+from tensorflow.examples.tutorials.mnist import input_data
 
 import os
 
@@ -11,26 +14,32 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
-# Set Parameters for Data Preparation
-batch_size = 64
-shuffle_size = 10000
-fetch_size = 1
-# Set Parameters for Training
-no_training_batches = 50
-save_model = True
-
-# Import desired Dataset
-train_data, test_data, val_data = input_fn.importmnist(batch_size, shuffle_size, fetch_size)
-# Create One Iterator and initialize with different datasets
-iterator = tf.data.Iterator.from_structure(train_data.output_types, train_data.output_shapes)
-img, label = iterator.get_next()
-
-train_init = iterator.make_initializer(train_data)  # initializer for train_data
-test_init = iterator.make_initializer(test_data)    # initializer for test_data
-
 K.set_session(tf.Session(config=config))
 
-# Run Training
-loss = Training.train_sess(img, save_model, train_init, no_training_batches)
+# Set Parameters for Data Preparation and Training
+params = {
+    "batch_size":           64,
+    "buffer_size":          10000,
+    "train_size":           5000,
+    "eval_size":            10,
+    "num_epochs":           1000,
+    "save_summary_steps":   100
+}
+
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+#restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+
+mnist = input_data.read_data_sets('/MNIST_data')
+
+# Creates an iterator and a dataset
+train_inputs = input_fn('train', mnist.train, params)
+cluster_inputs = input_fn('cluster', mnist.train, params)
+
+# Define the models (2 different set of nodes that share weights for train and eval)
+train_model_spec = vae_model_fn('train', train_inputs, params)
+cluster_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=True)
+
+# Train the model
+train_and_evaluate(train_model_spec, cluster_model_spec, model_dir, params)  # add ", restore_dir" if a restore Direction is available
 
 
