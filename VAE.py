@@ -83,7 +83,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
         p_dropout = 1
 # -----------------------------------------------------------
     # MODEL: define the layers of the model
-    with tf.variable_scope('model', reuse=reuse):
+    with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
         img_loss, latent_loss, sampled = build_model(inputs, params, p_dropout)
 
@@ -99,7 +99,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # -----------------------------------------------------------
     # METRICS AND SUMMARIES
     # Metrics for evaluation using tf.metrics (average over whole dataset)
-    with tf.variable_scope("metrics"):
+    with tf.variable_scope("vae_metrics"):
         metrics = {
             'loss': tf.metrics.mean(loss)
         }
@@ -108,7 +108,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     update_metrics_op = tf.group(*[op for _, op in metrics.values()])
 
     # Get the op to reset the local variables used in tf.metrics
-    metric_variables = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="metrics")
+    metric_variables = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="vae_metrics")
     metrics_init_op = tf.variables_initializer(metric_variables)
 
     # Summaries for training

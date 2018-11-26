@@ -1,85 +1,68 @@
-""" K-Means.
-Implement K-Means algorithm with TensorFlow, and apply it to classify
-handwritten digit images. This example is using the MNIST database of
-handwritten digits as training samples (http://yann.lecun.com/exdb/mnist/).
-"""
-
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.factorization import KMeans
+from VAE import build_model
+from metrics import cluster_accuracy
 
-# Ignore all GPUs, tf random forest does not benefit from it.
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-# Import MNIST data
-from tensorflow.examples.tutorials.mnist import input_data
-mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
-full_data_x = mnist.train.images
+def build_kmeans_model(inputs, params):
+    imgs = inputs["img"]
 
-# Parameters
-num_steps = 50 # Total steps to train
-batch_size = 1024 # The number of samples per batch
-k = 25 # The number of clusters
-num_classes = 10 # The 10 digits
-num_features = 784 # Each image is 28x28 pixels
+    kmeans_model = KMeans(inputs=imgs, num_clusters=params['k'], distance_metric='cosine')
 
-# Input images
-X = tf.placeholder(tf.float32, shape=[None, num_features])
-# Labels (for assigning a label to a centroid and testing)
-Y = tf.placeholder(tf.float32, shape=[None, num_classes])
+    # Build KMeans graph
+    training_graph = kmeans_model.training_graph()
 
-# K-Means Parameters
-kmeans = KMeans(inputs=X, num_clusters=k, distance_metric='cosine',
-                use_mini_batch=True)
+    return training_graph
 
-# Build KMeans graph
-training_graph = kmeans.training_graph()
 
-if len(training_graph) > 6: # Tensorflow 1.4+
-    (all_scores, cluster_idx, scores, cluster_centers_initialized,
-     cluster_centers_var, init_op, train_op) = training_graph
-else:
+def kmeans_model_fn(inputs, params, reuse=False):
+
+    with tf.variable_scope('kmeans', reuse=reuse):
+        # Build up the kMeans Model
+        # K-Means Parameters
+        training_graph = build_kmeans_model(inputs, params)
+
     (all_scores, cluster_idx, scores, cluster_centers_initialized,
      init_op, train_op) = training_graph
 
-cluster_idx = cluster_idx[0] # fix for cluster_idx being a tuple
-avg_distance = tf.reduce_mean(scores)
+    global_step = tf.train.get_or_create_global_step()
+    cluster_idx = cluster_idx[0]  # fix for cluster_idx being a
 
-# Initialize the variables (i.e. assign their default value)
-init_vars = tf.global_variables_initializer()
+    # -----------------------------------------------------------
+    # METRICS AND SUMMARIES
+    # Metrics for evaluation using tf.metrics (average over whole dataset)
 
-# Start TensorFlow session
-sess = tf.Session()
+    avg_distance = tf.metrics.mean(scores)
+    with tf.variable_scope("kmeans_metrics"):
+        metrics = {
+            'loss':         avg_distance
+        }
 
-# Run the initializer
-sess.run(init_vars, feed_dict={X: full_data_x})
-sess.run(init_op, feed_dict={X: full_data_x})
+    # Group the update ops for the tf.metrics
+    update_metrics_op = tf.group(*[op for _, op in metrics.values()])
 
-# Training
-for i in range(1, num_steps + 1):
-    _, d, idx = sess.run([train_op, avg_distance, cluster_idx],
-                         feed_dict={X: full_data_x})
-    if i % 10 == 0 or i == 1:
-        print("Step %i, Avg Distance: %f" % (i, d))
+    # Get the op to reset the local variables used in tf.metrics
+    metric_variables = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="kmeans_metrics")
+    metrics_init_op = tf.variables_initializer(metric_variables)
 
-# Assign a label to each centroid
-# Count total number of labels per centroid, using the label of each training
-# sample to their closest centroid (given by 'idx')
-counts = np.zeros(shape=(k, num_classes))
-for i in range(len(idx)):
-    counts[idx[i]] += mnist.train.labels[i]
-# Assign the most frequent label to the centroid
-labels_map = [np.argmax(c) for c in counts]
-labels_map = tf.convert_to_tensor(labels_map)
+    # Summaries for training
+    tf.summary.scalar('loss', avg_distance)
 
-# Evaluation ops
-# Lookup: centroid_id -> label
-cluster_label = tf.nn.embedding_lookup(labels_map, cluster_idx)
-# Compute accuracy
-correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(Y, 1), tf.int32))
-accuracy_op = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    # -----------------------------------------------------------
+    # MODEL SPECIFICATION
+    # Create the model specification and return it
+    # It contains nodes or operations in the graph that will be used for training and evaluation
+    model_spec = inputs
+    variable_init_op = tf.group(*[tf.global_variables_initializer(), tf.tables_initializer()])
+    model_spec['variable_init_op'] = variable_init_op
+    model_spec['loss'] = avg_distance
+    model_spec['cluster_idx'] = cluster_idx
+    model_spec['metrics_init_op'] = metrics_init_op
+    model_spec['metrics'] = metrics
+    model_spec['update_metrics'] = update_metrics_op
+    model_spec['summary_op'] = tf.summary.merge_all()
+    model_spec['train_op'] = train_op
+    model_spec['init_op'] = init_op
 
-# Test Model
-test_x, test_y = mnist.test.images, mnist.test.labels
-print("Test Accuracy:", sess.run(accuracy_op, feed_dict={X: test_x, Y: test_y}))
+    return model_spec
