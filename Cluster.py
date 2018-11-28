@@ -26,10 +26,10 @@ K.set_session(tf.Session(config=config))
 
 # Set Parameters for Data Preparation and Training
 params = {
-    "batch_size":           512,
+    "batch_size":           8192,
     "buffer_size":          10000,
     "train_size":           5000,
-    "eval_size":            10,
+    "eval_size":            25,
     "num_epochs":           1000,
     "save_summary_steps":   100,
     "k":                    25,     # The number of clusters
@@ -78,12 +78,22 @@ with tf.Session() as sess:
 
     # Training of Clustering
     for i in range(1, params['eval_size'] + 1):
-        _, idx, labels = sess.run([cluster_model_spec['train_op'], cluster_model_spec['cluster_idx'], cluster_inputs["labels"]])
+        n_batches = 0
+        accuracy = 0
+        try:
+            while True:
+                _, idx, labels = sess.run(
+                    [cluster_model_spec['train_op'], cluster_model_spec['cluster_idx'], cluster_inputs["labels"]])
+                # Evaluate
+                accuracy += sess.run(cluster_accuracy(labels, params, idx))
+                n_batches += 1
+        except tf.errors.OutOfRangeError:
+            sess.run(cluster_model_spec['iterator_init_op'])
+            pass
+        print("Test Accuracy:", accuracy / n_batches)
         #if i % 10 == 0 or i == 1:
 
-    # Evaluate
-    accuracy = cluster_accuracy(labels, params, idx)
-    print("Test Accuracy:", sess.run(accuracy))
+
 
 
 # Evaluate the model
