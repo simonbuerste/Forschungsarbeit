@@ -17,7 +17,7 @@ def cluster_accuracy(labels, params, cluster_idx):
     # Lookup: centroid_id -> label
     cluster_label = tf.nn.embedding_lookup(labels_map, cluster_idx)
     # Compute accuracy
-    correct_prediction = tf.equal(cluster_label, tf.cast(tf.argmax(labels, -1), tf.int32))
+    correct_prediction = tf.equal(cluster_label, tf.cast(labels, tf.int32))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
     return accuracy
