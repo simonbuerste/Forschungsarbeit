@@ -17,30 +17,32 @@ import os
 # Set the random seed for the whole graph for reproductible experiments
 tf.set_random_seed(230)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
-K.set_session(tf.Session(config=config))
 
 # Set Parameters for Data Preparation and Training
 params = {
     "batch_size":           8192,
     "buffer_size":          10000,
     "train_size":           5000,
-    "eval_size":            25,
+    "eval_size":            5,
     "num_epochs":           1000,
     "save_summary_steps":   100,
     "k":                    25,     # The number of clusters
     "num_classes":          10      # The 10 digits
 }
 
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+#model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
 #restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/best_weights/'
 restore_from = 'best_weights'
 
-mnist = input_data.read_data_sets('/MNIST_data')
+data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+#data_dir = '/MNIST_data'
+mnist = input_data.read_data_sets(data_dir)
 
 # Creates an iterator and a dataset
 cluster_inputs = input_fn('cluster', mnist.test, params)
@@ -56,7 +58,7 @@ cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
 # Initialize tf.Saver
 saver = tf.train.Saver(vars_to_restore)
 
-with tf.Session() as sess:
+with tf.Session(config=config) as sess:
     # Initialize the lookup table
     sess.run([vae_model_spec['variable_init_op'], cluster_model_spec['variable_init_op']])
 
@@ -72,11 +74,11 @@ with tf.Session() as sess:
 
     num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
     #metrics = evaluate_sess(sess, cluster_model_spec, num_steps)
-    #metrics_name = '_'.join(restore_from.split('/'))
+    metrics_name = '_'.join(restore_from.split('/'))
     #save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
     #save_dict_to_json(metrics, save_path)
 
-    # Training of Clustering
+    # Clustering
     for i in range(1, params['eval_size'] + 1):
         n_batches = 0
         accuracy = 0
@@ -91,6 +93,13 @@ with tf.Session() as sess:
             sess.run(cluster_model_spec['iterator_init_op'])
             pass
         print("Test Accuracy:", accuracy / n_batches)
+
+    metrics = {
+        'Accuracy': accuracy / n_batches
+    }
+
+    save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
+    save_dict_to_json(metrics, save_path)
         #if i % 10 == 0 or i == 1:
 
 

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import os
 import logging
-from tqdm import trange
+#from tqdm import trange
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 
@@ -28,8 +28,8 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     sess.run(model_spec['metrics_init_op'])
 
     # Use tqdm for progress bar
-    t = trange(num_steps)
-    for i in t:
+    #t = trange(num_steps)
+    for i in range(num_steps):
         # Evaluate summaries for tensorboard only once in a while
         if i % params['save_summary_steps'] == 0:
             # Perform a mini-batch update
@@ -40,7 +40,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss])
         # Log the loss in the tqdm progress bar
-        t.set_postfix(loss='{:05.3f}'.format(loss_val))
+        #t.set_postfix(loss='{:05.3f}'.format(loss_val))
 
     metrics_values = {k: v[0] for k, v in metrics.items()}
     metrics_val = sess.run(metrics_values)
@@ -48,7 +48,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     logging.info("- Train metrics: " + metrics_string)
 
 
-def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, restore_from=None):
+def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, config, restore_from=None):
     """Train the model and evaluate every epoch.
        Args:
            train_model_spec: (dict) contains the graph operations or nodes needed for training
@@ -56,6 +56,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
            model_dir: (string) directory containing config, weights and log
            params: (Params) contains hyperparameters of the model.
                    Must define: num_epochs, train_size, batch_size, eval_size, save_summary_steps
+           config: (tf.ConfigProto()) Set options for the session (like gpu_options)
            restore_from: (string) directory or file containing weights to restore the graph
        """
     # Initialize tf.Saver instances to save weights during training
@@ -63,7 +64,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
     best_saver = tf.train.Saver(max_to_keep=1)  # only keep 1 best checkpoint (best on eval)
     begin_at_epoch = 0
 
-    with tf.Session() as sess:
+    with tf.Session(config=config) as sess:
         # Initialize model variables
         sess.run(train_model_spec['variable_init_op'])
 
@@ -86,8 +87,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
             train_sess(sess, train_model_spec, num_steps, train_writer, params)
 
             # Save weights
-            last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
-            last_saver.save(sess, last_save_path, global_step=epoch + 1)
+            #last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
+            #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
             # Evaluate for one epoch on validation set
             num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
@@ -108,5 +109,6 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, res
 
             # Save latest eval metrics in a json file in the model directory
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
+            print("Eval_Loss after Epoch ", epoch, ":", eval_loss)
 
             save_dict_to_json(metrics, last_json_path)
