@@ -48,15 +48,13 @@ def normalized_mutual_information(labels, params, cluster_idx):
     entropy_cluster_idx = tf.reduce_sum(entropy_cluster_idx)
 
     # Calculate Conditional Entropy of class labels for clusters
-    conditional_entropy = tf.convert_to_tensor(np.zeros(shape=(params['k'], 1)))
-    for i in range(params['k']):
-        sum_conditional_entropy = 0
-        for j in range(params['num_classes']):
-            p_conditional = counts[i, j]/counts_clusters[i]
-            print("p_conditional:", p_conditional)
-            sum_conditional_entropy += p_conditional*tf.log(p_conditional)
-            print("sum_conditional_entropy:", sum_conditional_entropy)
-        conditional_entropy[i] = -p_cluster[i]*sum_conditional_entropy
+    p_conditional = counts / tf.reshape(counts_clusters, (-1, 1))
+    log_p_conditional = tf.log(p_conditional)
+    # Setting -inf Values to '0' for correct Calculation of NMI
+    log_p_conditional = tf.where(tf.is_inf(log_p_conditional), tf.zeros_like(log_p_conditional), log_p_conditional)
+    sum_conditional_entropy = tf.reduce_sum(p_conditional*log_p_conditional, 1)
+    conditional_entropy = -p_cluster*sum_conditional_entropy
+
 
     # Mutual Information mi
     mi = entropy_class_labels - tf.reduce_sum(conditional_entropy)

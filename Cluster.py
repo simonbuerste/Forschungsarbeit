@@ -9,6 +9,7 @@ from kMeans import kmeans_model_fn
 from utils import samples_latentspace
 from utils import save_dict_to_json
 from metrics import cluster_accuracy
+from metrics import normalized_mutual_information
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -25,7 +26,7 @@ config.gpu_options.allow_growth = True
 
 # Set Parameters for Data Preparation and Training
 params = {
-    "batch_size":           8192,
+    "batch_size":           10000,
     "buffer_size":          10000,
     "train_size":           5000,
     "eval_size":            5,
@@ -71,6 +72,7 @@ with tf.Session(config=config) as sess:
     sess.run(cluster_model_spec['iterator_init_op'])
     sess.run(cluster_model_spec['metrics_init_op'])
     sess.run(cluster_model_spec['init_op'])
+    sess.run(cluster_model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
 
     num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
     #metrics = evaluate_sess(sess, cluster_model_spec, num_steps)
@@ -82,20 +84,24 @@ with tf.Session(config=config) as sess:
     for i in range(1, params['eval_size'] + 1):
         n_batches = 0
         accuracy = 0
+        nmi = 0
         try:
             while True:
                 _, idx, labels = sess.run(
                     [cluster_model_spec['train_op'], cluster_model_spec['cluster_idx'], cluster_inputs["labels"]])
                 # Evaluate
                 accuracy += sess.run(cluster_accuracy(labels, params, idx))
+                nmi += sess.run(normalized_mutual_information(labels, params, idx))
                 n_batches += 1
         except tf.errors.OutOfRangeError:
             sess.run(cluster_model_spec['iterator_init_op'])
             pass
         print("Test Accuracy:", accuracy / n_batches)
+        print("Normalized Mutual Information:", nmi / n_batches)
 
     metrics = {
-        'Accuracy': accuracy / n_batches
+        'Accuracy': accuracy / n_batches,
+        'NMI': nmi / n_batches
     }
 
     save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
