@@ -27,7 +27,7 @@ def kmeans_model_fn(inputs, params, reuse=False):
      init_op, train_op) = training_graph
 
     global_step = tf.train.get_or_create_global_step()
-    cluster_idx = cluster_idx[0]  # fix for cluster_idx being a
+    cluster_idx = cluster_idx[0]  # fix for cluster_idx being a tuple
 
     # -----------------------------------------------------------
     # METRICS AND SUMMARIES

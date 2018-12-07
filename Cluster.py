@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 from input_fn import input_fn
 from evaluation import evaluate_sess
@@ -10,6 +11,7 @@ from utils import samples_latentspace
 from utils import save_dict_to_json
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
+from metrics import adjuster_rand_index
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -29,7 +31,7 @@ params = {
     "batch_size":           10000,
     "buffer_size":          10000,
     "train_size":           5000,
-    "eval_size":            5,
+    "eval_size":            25,
     "num_epochs":           1000,
     "save_summary_steps":   100,
     "k":                    25,     # The number of clusters
@@ -85,23 +87,43 @@ with tf.Session(config=config) as sess:
         n_batches = 0
         accuracy = 0
         nmi = 0
+        ari = 0
         try:
             while True:
                 _, idx, labels = sess.run(
                     [cluster_model_spec['train_op'], cluster_model_spec['cluster_idx'], cluster_inputs["labels"]])
                 # Evaluate
-                accuracy += sess.run(cluster_accuracy(labels, params, idx))
-                nmi += sess.run(normalized_mutual_information(labels, params, idx))
+
+                # Assign a label to each centroid
+                # Count total number of labels per centroid, using the label of each training
+                # sample to their closest centroid (given by 'cluster_idx')
+                counts = np.zeros(shape=(params['k'], params['num_classes']))
+                for j in range(len(idx)):
+                    counts[idx[j], labels[j]] += 1
+                counts = tf.convert_to_tensor(counts)
+
+                # Assign the most frequent label to the centroid
+                labels_map = tf.argmax(counts, axis=1)  # find Label with max. occurrence along each row
+
+                # Evaluation ops
+                # Lookup: centroid_id -> label
+                y_pred = tf.nn.embedding_lookup(labels_map, idx)
+
+                accuracy += sess.run(cluster_accuracy(labels, y_pred))
+                nmi += sess.run(normalized_mutual_information(counts))
+                ari += sess.run(adjuster_rand_index(counts))
                 n_batches += 1
         except tf.errors.OutOfRangeError:
             sess.run(cluster_model_spec['iterator_init_op'])
             pass
         print("Test Accuracy:", accuracy / n_batches)
         print("Normalized Mutual Information:", nmi / n_batches)
+        print("Adjusted Rand Index:", ari / n_batches)
 
     metrics = {
         'Accuracy': accuracy / n_batches,
-        'NMI': nmi / n_batches
+        'NMI': nmi / n_batches,
+        'ARI': ari / n_batches
     }
 
     save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
