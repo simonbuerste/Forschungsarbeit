@@ -11,8 +11,8 @@ import sys
 import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets import mnist
 
-data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
-#data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+#data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
+data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
 
 
 def _int64_feature(value):

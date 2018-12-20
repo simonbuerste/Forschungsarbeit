@@ -34,8 +34,8 @@ def input_fn(data_dir, mode, params):
     """ Input Function for the Model
 
     Args:
-        mode: (string) 'train' 'eval' or something similar. At Training, Data will be shuffled and we have multiple epochs
-        data_dir: (tf.Dataset) COntains the directory of the Data
+        mode: (string) 'train' 'test' or something similar. At Training, Data will be shuffled and we have multiple epochs
+        data_dir: (directory) Contains the directory of the Data
         params: (Parameters) contains Parameters relevant for Data Preparation (params.num_epochs, params.batch_size,..)
 
     """
@@ -45,7 +45,7 @@ def input_fn(data_dir, mode, params):
     else:
         buffer_size = 1
 
-    # Create a list of filenames and pass it to a queue
+    # Create the link to the file
     filename = os.path.join(data_dir, mode + '.tfrecords')
 
     # Pipeline of dataset and iterator

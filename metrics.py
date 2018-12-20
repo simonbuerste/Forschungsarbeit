@@ -70,32 +70,28 @@ def adjuster_rand_index(counts):
     a = tf.reduce_sum(counts, 1)  # row sum
     a_enum = tf.exp(tf.lgamma(a+1))  # (add + 1 due to definition of gamma function)
     a_denom = 2*tf.exp(tf.lgamma(a-1))  # (add + 1 due to definition of gamma function)
-    a_bi_coeff = a_enum/a_denom
+    a_bi_coeff = a*(a-1)/2
     a_sum_bi_coeff = tf.reduce_sum(a_bi_coeff)
 
     # Calculate binomial coefficients of the sums of each labels over 2
     # Variabel called "b"
     b = tf.reduce_sum(counts, 0)  # column sum
-    b_enum = tf.exp(tf.lgamma(b+1))  # (add + 1 due to definition of gamma function)
-    b_denom = 2*tf.exp(tf.lgamma(b-1))  # (add + 1 due to definition of gamma function)
-    b_bi_coeff = b_enum/b_denom
+    #b_enum = tf.exp(tf.lgamma(b+1))  # (add + 1 due to definition of gamma function)
+    #b_denom = 2*tf.exp(tf.lgamma(b-1))  # (add + 1 due to definition of gamma function)
+    b_bi_coeff = b*(b-1)/2
     b_sum_bi_coeff = tf.reduce_sum(b_bi_coeff)
 
     # Calculate number of samples
     no_samples = tf.reduce_sum(counts)
-    no_samples_fact = tf.exp(tf.lgamma(no_samples + 1))  # factorial of no_samples
-    no_samples_2_fact = tf.exp(tf.lgamma(no_samples - 1))  # factorial of no_samples - 2
-    no_samples_2_bicoeff = no_samples_fact/(2*no_samples_2_fact)  # binomial coefficient of no_samples over 2
+    no_samples_2_bicoeff = no_samples*(no_samples-1)/2  # binomial coefficient of no_samples over 2
 
-    debug1 = no_samples.eval()
-    debug2 = no_samples_fact.eval()
-    debug3 = no_samples_2_fact.eval()
+    debug1 = a_bi_coeff.eval()
+    debug2 = b_bi_coeff.eval()
     debug4 = no_samples_2_bicoeff.eval()
 
     # Calculate enumerator and denominator of ARI
     ari_enum = n_sum_bi_coeff - (a_sum_bi_coeff*b_sum_bi_coeff)/no_samples_2_bicoeff
     ari_denom = 0.5*(a_sum_bi_coeff+b_sum_bi_coeff) - (a_sum_bi_coeff*b_sum_bi_coeff)/no_samples_2_bicoeff
-
     # Calculate ARI
     ari = ari_enum/ari_denom
 

@@ -32,7 +32,7 @@ params = {
     "buffer_size":          10000,
     "train_size":           5000,
     "eval_size":            25,
-    "num_epochs":           1000,
+    "num_epochs":           1,
     "save_summary_steps":   100,
     "k":                    25,     # The number of clusters
     "num_classes":          10      # The 10 digits
@@ -48,7 +48,7 @@ data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_da
 mnist = input_data.read_data_sets(data_dir)
 
 # Creates an iterator and a dataset
-cluster_inputs = input_fn('cluster', mnist.test, params)
+cluster_inputs = input_fn(data_dir, 'test', params)
 
 # Define the model
 vae_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=False)
