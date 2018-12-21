@@ -33,10 +33,9 @@ def kmeans_model_fn(inputs, params, reuse=False):
     # METRICS AND SUMMARIES
     # Metrics for evaluation using tf.metrics (average over whole dataset)
 
-    avg_distance = tf.metrics.mean(scores)
     with tf.variable_scope("kmeans_metrics"):
         metrics = {
-            'loss':         avg_distance
+            'loss': tf.metrics.mean(scores)
         }
 
     # Group the update ops for the tf.metrics
@@ -47,7 +46,7 @@ def kmeans_model_fn(inputs, params, reuse=False):
     metrics_init_op = tf.variables_initializer(metric_variables)
 
     # Summaries for training
-    tf.summary.scalar('loss', avg_distance)
+    tf.summary.scalar('loss', scores)
 
     # -----------------------------------------------------------
     # MODEL SPECIFICATION
@@ -56,7 +55,7 @@ def kmeans_model_fn(inputs, params, reuse=False):
     model_spec = inputs
     variable_init_op = tf.group(*[tf.global_variables_initializer(), tf.tables_initializer()])
     model_spec['variable_init_op'] = variable_init_op
-    model_spec['loss'] = avg_distance
+    model_spec['loss'] = scores
     model_spec['cluster_idx'] = cluster_idx
     model_spec['metrics_init_op'] = metrics_init_op
     model_spec['metrics'] = metrics

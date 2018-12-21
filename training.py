@@ -66,7 +66,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
     with tf.Session(config=config) as sess:
         # Initialize model variables
-        sess.run(train_model_spec['variable_init_op'])
+        sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']])
 
         # Reload weights from directory if specified
         if restore_from is not None:
@@ -92,7 +92,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             # Evaluate for one epoch on validation set
             num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
-            metrics = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer)
+            metrics = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer, params)
 
             # If best_eval, best_save_path
             eval_loss = metrics['loss']
