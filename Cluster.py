@@ -28,7 +28,7 @@ config.gpu_options.allow_growth = True
 
 # Set Parameters for Data Preparation and Training
 params = {
-    "batch_size":           10000,
+    "batch_size":           128,
     "buffer_size":          10000,
     "train_size":           5000,
     "eval_size":            25,
@@ -38,14 +38,13 @@ params = {
     "num_classes":          10      # The 10 digits
 }
 
-#model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
-model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+#model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
 #restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/best_weights/'
 restore_from = 'best_weights'
 
-data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-#data_dir = '/MNIST_data'
-mnist = input_data.read_data_sets(data_dir)
+#data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST/'
 
 # Creates an iterator and a dataset
 cluster_inputs = input_fn(data_dir, 'test', params)
