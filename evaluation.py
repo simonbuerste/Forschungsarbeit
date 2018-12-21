@@ -4,7 +4,12 @@ import logging
 import os
 
 import tensorflow as tf
+import numpy as np
+
 from utils import save_dict_to_json
+from metrics import cluster_accuracy
+from metrics import normalized_mutual_information
+from metrics import adjuster_rand_index
 
 
 def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
@@ -22,15 +27,51 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
 
     # Load the evaluation dataset into the pipeline and initialize the metrics init op
     sess.run(model_spec['iterator_init_op'])
+    sess.run(model_spec['init_op'])
     sess.run(model_spec['metrics_init_op'])
+    sess.run(model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
 
+    accuracy = 0
+    nmi = 0
+    ari = 0
     # compute metrics over the dataset
     for _ in range(num_steps):
-        sess.run(update_metrics)
+
+        _, _, idx, labels = sess.run(
+            [model_spec['train_op'], update_metrics, model_spec['cluster_idx'], model_spec["labels"]])
+        # Evaluate
+
+        # Assign a label to each centroid
+        # Count total number of labels per centroid, using the label of each training
+        # sample to their closest centroid (given by 'cluster_idx')
+        counts = np.zeros(shape=(params['k'], params['num_classes']))
+        for j in range(len(idx)):
+            counts[idx[j], labels[j]] += 1
+        counts = tf.convert_to_tensor(counts)
+
+        # Assign the most frequent label to the centroid
+        labels_map = tf.argmax(counts, axis=1)  # find Label with max. occurrence along each row
+
+        # Evaluation ops
+        # Lookup: centroid_id -> label
+        y_pred = tf.nn.embedding_lookup(labels_map, idx)
+
+        accuracy += sess.run(cluster_accuracy(labels, y_pred))
+        nmi += sess.run(normalized_mutual_information(counts))
+        ari += sess.run(adjuster_rand_index(counts))
+
+    #eval_metrics['Accuracy'] = accuracy / num_steps
+    #eval_metrics['Normalized Mutual Information'] = nmi / num_steps
+    #eval_metrics['Adjusted Rand Index'] = ari / num_steps
 
     # Get the values of the metrics
     metrics_values = {k: v[0] for k, v in eval_metrics.items()}
     metrics_val = sess.run(metrics_values)
+
+    metrics_val['Accuracy'] = accuracy / num_steps
+    metrics_val['Normalized Mutual Information'] = nmi / num_steps
+    metrics_val['Adjusted Rand Index'] = ari / num_steps
+
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_val.items())
     logging.info("- Eval metrics: " + metrics_string)
 
