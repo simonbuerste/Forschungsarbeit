@@ -2,10 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 from input_fn import input_fn
-from evaluation import evaluate_sess
-from training import train_and_evaluate
 from VAE import vae_model_fn
-from keras import backend as K
 from kMeans import kmeans_model_fn
 from utils import samples_latentspace
 from utils import save_dict_to_json
@@ -61,7 +58,7 @@ cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
 saver = tf.train.Saver(vars_to_restore)
 
 with tf.Session(config=config) as sess:
-    # Initialize the lookup table
+    # Initialize the variables
     sess.run([vae_model_spec['variable_init_op'], cluster_model_spec['variable_init_op']])
 
     # Reload weights from the weights subdirectory
