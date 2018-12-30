@@ -41,7 +41,7 @@ def input_fn(data_dir, mode, params):
     """
 
     if mode == "train":
-        buffer_size = params["buffer_size"]
+        buffer_size = params.buffer_size
     else:
         buffer_size = 1
 
@@ -53,7 +53,7 @@ def input_fn(data_dir, mode, params):
     dataset = dataset.map(extract_fn)
     # Create Training Dataset, shuffle and batch it
     dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
-    dataset = dataset.batch(params["batch_size"])
+    dataset = dataset.batch(params.batch_size)
     dataset = dataset.prefetch(1)                     # make sure always one batch is ready to serve
 
     # Create initializable iterator from Data so that it can be reset at each epoch

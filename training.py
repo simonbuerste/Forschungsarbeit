@@ -31,7 +31,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     #t = trange(num_steps)
     for i in range(num_steps):
         # Evaluate summaries for tensorboard only once in a while
-        if i % params['save_summary_steps'] == 0:
+        if i % params.save_summary_steps == 0:
             # Perform a mini-batch update
             _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
                                                               summary_op, global_step])
@@ -46,6 +46,8 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     metrics_val = sess.run(metrics_values)
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_val.items())
     logging.info("- Train metrics: " + metrics_string)
+
+    return metrics_val
 
 
 def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, config, restore_from=None):
@@ -80,22 +82,22 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         eval_writer = tf.summary.FileWriter(os.path.join(model_dir, 'eval_summaries'), sess.graph)
 
         best_eval_loss = 10000.0
-        for epoch in range(begin_at_epoch, begin_at_epoch + params['num_epochs']):
+        for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
-            num_steps = (params['train_size'] + params['batch_size'] - 1) // params['batch_size']
-            train_sess(sess, train_model_spec, num_steps, train_writer, params)
+            num_steps = (params.train_size + params.batch_size - 1) // params.batch_size
+            metrics_train = train_sess(sess, train_model_spec, num_steps, train_writer, params)
 
             # Save weights
             #last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
             #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
             # Evaluate for one epoch on validation set
-            num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
-            metrics = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer, params)
+            num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
+            metrics_eval = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer, params)
 
             # If best_eval, best_save_path
-            eval_loss = metrics['loss']
+            eval_loss = metrics_eval['loss']
             if eval_loss <= best_eval_loss:
                 # Store new best accuracy
                 best_eval_loss = eval_loss
@@ -105,10 +107,10 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
                 logging.info("- Found new best accuracy, saving in {}".format(best_save_path))
                 # Save best eval metrics in a json file in the model directory
                 best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
-                save_dict_to_json(metrics, best_json_path)
+                save_dict_to_json(metrics_eval, best_json_path)
 
             # Save latest eval metrics in a json file in the model directory
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
             print("Eval_Loss after Epoch ", epoch, ":", eval_loss)
 
-            save_dict_to_json(metrics, last_json_path)
+            save_dict_to_json(metrics_eval, last_json_path)

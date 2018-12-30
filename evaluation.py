@@ -44,7 +44,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
         # Assign a label to each centroid
         # Count total number of labels per centroid, using the label of each training
         # sample to their closest centroid (given by 'cluster_idx')
-        counts = np.zeros(shape=(params['k'], params['num_classes']))
+        counts = np.zeros(shape=(params.k, params.num_classes))
         for j in range(len(idx)):
             counts[idx[j], labels[j]] += 1
         counts = tf.convert_to_tensor(counts)
@@ -59,10 +59,6 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
         accuracy += sess.run(cluster_accuracy(labels, y_pred))
         nmi += sess.run(normalized_mutual_information(counts))
         ari += sess.run(adjuster_rand_index(counts))
-
-    #eval_metrics['Accuracy'] = accuracy / num_steps
-    #eval_metrics['Normalized Mutual Information'] = nmi / num_steps
-    #eval_metrics['Adjusted Rand Index'] = ari / num_steps
 
     # Get the values of the metrics
     metrics_values = {k: v[0] for k, v in eval_metrics.items()}
@@ -85,7 +81,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
     return metrics_val
 
 
-def evaluate(model_spec, model_dir, params, restore_from):
+def evaluate(model_spec, model_dir, params, restore_from, config, saver):
     """Evaluate the model
     Args:
         model_spec: (dict) contains the graph operations or nodes needed for evaluation
@@ -93,12 +89,12 @@ def evaluate(model_spec, model_dir, params, restore_from):
         params: (Params) contains hyperparameters of the model.
                 Must define: num_epochs, train_size, batch_size, eval_size, save_summary_steps
         restore_from: (string) directory or file containing weights to restore the graph
+        config: (Configuration) configuration for the session (GPU_options)
+        saver: (tf.Train.Saver) saver with defined variables to restore
     """
-    # Initialize tf.Saver
-    saver = tf.train.Saver()
 
-    with tf.Session() as sess:
-        # Initialize the lookup table
+    with tf.Session(config=config) as sess:
+        # Initialize the variables
         sess.run(model_spec['variable_init_op'])
 
         # Reload weights from the weights subdirectory
@@ -107,9 +103,11 @@ def evaluate(model_spec, model_dir, params, restore_from):
             save_path = tf.train.latest_checkpoint(save_path)
         saver.restore(sess, save_path)
 
-        # Evaluate
-        num_steps = (params['eval_size'] + params['batch_size'] - 1) // params['batch_size']
-        metrics = evaluate_sess(sess, model_spec, num_steps)
+        cluster_writer = tf.summary.FileWriter(os.path.join(model_dir, 'cluster_summaries'), sess.graph)
+
+        num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
+
+        metrics = evaluate_sess(sess, model_spec, num_steps, cluster_writer, params)
         metrics_name = '_'.join(restore_from.split('/'))
         save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
         save_dict_to_json(metrics, save_path)
