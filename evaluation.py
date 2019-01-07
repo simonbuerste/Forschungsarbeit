@@ -10,6 +10,7 @@ from utils import save_dict_to_json
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
 from metrics import adjuster_rand_index
+from tensorflow.contrib.tensorboard.plugins import projector
 
 
 def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
@@ -78,7 +79,20 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
             summ = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
             writer.add_summary(summ, global_step_val)
 
-    return metrics_val
+    visualize = True
+
+    # Input set for Embedded TensorBoard visualization
+    if visualize is True:
+        for i in range(num_steps):
+            z, labels = sess.run([model_spec["img"], model_spec["labels"]])
+            if i == 0:
+                embedded_data = z
+                embedded_labels = labels
+            else:
+                embedded_data = np.concatenate((embedded_data, z), axis=0)
+                embedded_labels = np.concatenate((embedded_labels, labels), axis=0)
+
+    return metrics_val, embedded_data, embedded_labels
 
 
 def evaluate(model_spec, model_dir, params, restore_from, config, saver):
@@ -111,3 +125,23 @@ def evaluate(model_spec, model_dir, params, restore_from, config, saver):
         metrics_name = '_'.join(restore_from.split('/'))
         save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
         save_dict_to_json(metrics, save_path)
+
+
+def visualize_tsne(writer):
+    log_dir = writer.get_logdir()
+
+
+    images = tf.Variable(tf.stack(embedded_data, axis=0), trainable=False, name='embedding')
+
+    saver = tf.train.Saver([images])
+    sess.run(images.initializer)
+    saver.save(sess, os.path.join(log_dir, 'images.ckpt'))
+
+    config = projector.ProjectorConfig()
+    # One can add multiple embeddings.
+    embedding = config.embeddings.add()
+    embedding.tensor_name = images.name
+    # Link this tensor to its metadata file (e.g. labels).
+    embedding.metadata_path = metadata
+    # Saves a config file that TensorBoard will read during startup.
+    projector.visualize_embeddings(writer, config)

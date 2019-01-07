@@ -3,9 +3,13 @@
 
 import json
 import logging
+import os
+import numpy as np
+import tensorflow as tf
+from tensorflow.contrib.tensorboard.plugins import projector
 
 
-class Params():
+class Params:
     """Class that loads hyperparameters from a json file.
     Example:
     ```
@@ -76,3 +80,30 @@ def save_dict_to_json(d, json_path):
 def samples_latentspace(model_spec):
     sampled = model_spec['sample']
     return sampled
+
+
+def visualize_embeddings(sess, log_dir, writer, params):
+
+    sub_latentspace = []
+    sub_metadata = []
+    for i in range(params.num_epochs):
+        metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
+        img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
+
+        latentspace = np.loadtxt(img_latentspace)
+        features = tf.Variable(latentspace, name=('latentspace' + str(i+1)))
+        sub_latentspace.append(features)
+        sub_metadata.append(metadata)
+
+    saver = tf.train.Saver()
+    sess.run(tf.global_variables_initializer())
+    saver.save(sess, log_dir)
+
+    config = projector.ProjectorConfig()
+    for i in range(params.num_epochs):
+        embedding = config.embeddings.add()
+        embedding.tensor_name = sub_latentspace[i].name
+        embedding.metadata_path = sub_metadata[i]
+
+    # Saves a config file that TensorBoard will read during startup.
+    projector.visualize_embeddings(writer, config)

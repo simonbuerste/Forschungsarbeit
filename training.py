@@ -4,6 +4,8 @@ import logging
 #from tqdm import trange
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
+from utils import visualize_embeddings
+import numpy as np
 
 
 def train_sess(sess, model_spec, num_steps, writer, params):
@@ -94,10 +96,12 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             # Evaluate for one epoch on validation set
             num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
-            metrics_eval = evaluate_sess(sess, eval_model_spec, num_steps, eval_writer, params)
+            metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
+                                                                         eval_writer, params)
 
             # If best_eval, best_save_path
-            eval_loss = metrics_eval['loss']
+            metrics_eval['VAE_loss'] = metrics_train['loss']
+            eval_loss = metrics_eval['VAE_loss']
             if eval_loss <= best_eval_loss:
                 # Store new best accuracy
                 best_eval_loss = eval_loss
@@ -111,6 +115,20 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             # Save latest eval metrics in a json file in the model directory
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
-            print("Eval_Loss after Epoch ", epoch, ":", eval_loss)
+            print("Eval_acc after Epoch ", epoch+1, ":", metrics_eval['Accuracy'])
+            print("VAE_loss after Epoch ", epoch+1, ":", eval_loss)
 
             save_dict_to_json(metrics_eval, last_json_path)
+
+            log_dir = eval_writer.get_logdir()
+            metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
+            img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
+
+            np.savetxt(img_latentspace, embedded_data)
+
+            # def save_metadata(file):
+            with open(metadata, 'w') as metadata_file:
+                for c in embedded_labels:
+                    metadata_file.write('{}\n'.format(c))
+
+        visualize_embeddings(sess, log_dir, eval_writer, params)
