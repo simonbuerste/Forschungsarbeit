@@ -21,24 +21,24 @@ tf.set_random_seed(230)
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--model_dir', default='C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/',
-                    help="Directory containing params.json")
-parser.add_argument('--data_dir', default='C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST/',
-                    help="Directory containing the dataset")
-parser.add_argument('--restore_from', default='best_weights',
-                    help="Subdirectory of model dir or file containing the weights")
-parser.add_argument('--gpu', default=0,
-                    help="Choose GPU on which the program should run")
-
-# model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
 # model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
 
 # restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/best_weights/'
-# restore_from = 'best_weights'
+restore_from = 'best_weights'
 
 # data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-# data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST/'
+data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST/'
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--model_dir', default=model_dir,
+                    help="Directory containing params.json")
+parser.add_argument('--data_dir', default=data_dir,
+                    help="Directory containing the dataset")
+parser.add_argument('--restore_from', default=restore_from,
+                    help="Subdirectory of model dir or file containing the weights")
+parser.add_argument('--gpu', default=0,
+                    help="Choose GPU on which the program should run")
 
 if __name__ == '__main__':
 
@@ -47,7 +47,8 @@ if __name__ == '__main__':
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
-    json_path = os.path.join(args.model_dir, 'params.json')
+    script_dir = os.path.dirname(__file__)
+    json_path = os.path.join(script_dir, 'params.json')
     params = Params(json_path)
 
     # Creates an iterator and a dataset

@@ -97,7 +97,8 @@ def visualize_embeddings(sess, log_dir, writer, params):
 
     saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
-    saver.save(sess, log_dir)
+    save_path = os.path.join(log_dir, 'latentspace')
+    saver.save(sess, save_path)
 
     config = projector.ProjectorConfig()
     for i in range(params.num_epochs):

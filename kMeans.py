@@ -8,7 +8,8 @@ from metrics import cluster_accuracy
 def build_kmeans_model(inputs, params):
     imgs = inputs["img"]
 
-    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='cosine', use_mini_batch=True)
+    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='cosine', use_mini_batch=True,
+                          mini_batch_steps_per_iteration=1)
 
     # Build KMeans graph
     training_graph = kmeans_model.training_graph()
@@ -63,5 +64,6 @@ def kmeans_model_fn(inputs, params, reuse=False):
     model_spec['summary_op'] = tf.summary.merge_all()
     model_spec['train_op'] = train_op
     model_spec['init_op'] = init_op
+    model_spec['cluster_center_initialized'] = cluster_centers_initialized
 
     return model_spec

@@ -13,7 +13,7 @@ from metrics import adjuster_rand_index
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
-def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
+def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=None):
     """Evaluate the model on `num_steps` batches.
     Args:
         sess: (tf.Session) current session
@@ -21,6 +21,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
         num_steps: (int) train for this number of batches
         writer: (tf.summary.FileWriter) writer for summaries. Is None if we don't log anything
         params: (Params) hyperparameters
+        epoch:  (int)   Epoch which is currently running (Necessary for correct writing of summary in case no optimizer used)
     """
     update_metrics = model_spec['update_metrics']
     eval_metrics = model_spec['metrics']
@@ -28,7 +29,11 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
 
     # Load the evaluation dataset into the pipeline and initialize the metrics init op
     sess.run(model_spec['iterator_init_op'])
-    sess.run(model_spec['init_op'])
+    clusters_initialized = sess.run(model_spec['cluster_center_initialized'])
+    while not clusters_initialized:
+        sess.run(model_spec['init_op'])
+        clusters_initialized = sess.run(model_spec['cluster_center_initialized'])
+
     sess.run(model_spec['metrics_init_op'])
     sess.run(model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
 
@@ -74,7 +79,10 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None):
 
     # Add summaries manually to writer at global_step_val
     if writer is not None:
-        global_step_val = sess.run(global_step)
+        if epoch is not None:
+            global_step_val = epoch
+        else:
+            global_step_val = sess.run(global_step)
         for tag, val in metrics_val.items():
             summ = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
             writer.add_summary(summ, global_step_val)
@@ -121,27 +129,17 @@ def evaluate(model_spec, model_dir, params, restore_from, config, saver):
 
         num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
 
-        metrics = evaluate_sess(sess, model_spec, num_steps, cluster_writer, params)
-        metrics_name = '_'.join(restore_from.split('/'))
-        save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
-        save_dict_to_json(metrics, save_path)
+        best_test_acc = 0.0
+        for epoch in range(params.num_epochs):
+            metrics, _, _ = evaluate_sess(sess, model_spec, num_steps, cluster_writer, params, epoch)
 
+            # If best_eval, best_save_path
+            test_acc = metrics['Accuracy']
+            if test_acc >= best_test_acc:
+                # Store new best accuracy
+                best_test_acc = test_acc
+                metrics_name = '_'.join(restore_from.split('/'))
+                save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
+                save_dict_to_json(metrics, save_path)
 
-def visualize_tsne(writer):
-    log_dir = writer.get_logdir()
-
-
-    images = tf.Variable(tf.stack(embedded_data, axis=0), trainable=False, name='embedding')
-
-    saver = tf.train.Saver([images])
-    sess.run(images.initializer)
-    saver.save(sess, os.path.join(log_dir, 'images.ckpt'))
-
-    config = projector.ProjectorConfig()
-    # One can add multiple embeddings.
-    embedding = config.embeddings.add()
-    embedding.tensor_name = images.name
-    # Link this tensor to its metadata file (e.g. labels).
-    embedding.metadata_path = metadata
-    # Saves a config file that TensorBoard will read during startup.
-    projector.visualize_embeddings(writer, config)
+            print("Test_acc after Epoch ", epoch+1, ":", test_acc)
