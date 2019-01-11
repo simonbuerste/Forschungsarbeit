@@ -14,7 +14,7 @@ from kMeans import kmeans_model_fn
 tf.set_random_seed(230)
 
 
-config = tf.ConfigProto()
+config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
 # model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')

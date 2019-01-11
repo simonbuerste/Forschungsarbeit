@@ -50,11 +50,12 @@ def input_fn(data_dir, mode, params):
 
     # Pipeline of dataset and iterator
     dataset = tf.data.TFRecordDataset([filename])
-    dataset = dataset.map(extract_fn)
+    dataset = dataset.map(extract_fn, num_parallel_calls=2)
+    # dataset = dataset.map(augmentation_fn, num_parallel_calls=2)
     # Create Training Dataset, shuffle and batch it
     dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
     dataset = dataset.batch(params.batch_size)
-    dataset = dataset.prefetch(1)                     # make sure always one batch is ready to serve
+    dataset = dataset.prefetch(2)                     # make sure always one batch is ready to serve
 
     # Create initializable iterator from Data so that it can be reset at each epoch
     iterator = dataset.make_initializable_iterator()
