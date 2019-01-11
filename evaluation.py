@@ -87,10 +87,8 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
             summ = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
             writer.add_summary(summ, global_step_val)
 
-    visualize = True
-
-    # Input set for Embedded TensorBoard visualization
-    if visualize is True:
+    # Input set for TensorBoard visualization
+    if params.visualize == 1:
         for i in range(num_steps):
             z, labels = sess.run([model_spec["img"], model_spec["labels"]])
             if i == 0:
@@ -99,6 +97,9 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
             else:
                 embedded_data = np.concatenate((embedded_data, z), axis=0)
                 embedded_labels = np.concatenate((embedded_labels, labels), axis=0)
+    else:
+        embedded_data = []
+        embedded_labels = []
 
     return metrics_val, embedded_data, embedded_labels
 

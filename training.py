@@ -1,11 +1,15 @@
-import tensorflow as tf
 import os
 import logging
+
+import tensorflow as tf
+import numpy as np
+
 #from tqdm import trange
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
-import numpy as np
+from utils import visualize_umap
+from utils import Params
 
 
 def train_sess(sess, model_spec, num_steps, writer, params):
@@ -83,7 +87,14 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         train_writer = tf.summary.FileWriter(os.path.join(model_dir, 'train_summaries'), sess.graph)
         eval_writer = tf.summary.FileWriter(os.path.join(model_dir, 'eval_summaries'), sess.graph)
 
-        best_eval_loss = 10000.0
+        # Load Best eval_loss so far (if existent)
+        best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
+        if os.path.isfile(best_json_path):
+            best_eval_metrics = Params(best_json_path)
+            best_eval_loss = best_eval_metrics.VAE_loss
+        else:
+            best_eval_loss = 10000.0
+
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
@@ -110,7 +121,6 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
                 best_save_path = best_saver.save(sess, best_save_path, global_step=epoch + 1)
                 logging.info("- Found new best accuracy, saving in {}".format(best_save_path))
                 # Save best eval metrics in a json file in the model directory
-                best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
                 save_dict_to_json(metrics_eval, best_json_path)
 
             # Save latest eval metrics in a json file in the model directory
@@ -120,15 +130,18 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             save_dict_to_json(metrics_eval, last_json_path)
 
-            log_dir = eval_writer.get_logdir()
-            metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
-            img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
+            if (params.visualize == 1) and (epoch % params.save_summary_steps == 0):
+                log_dir = eval_writer.get_logdir()
+                metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
+                img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
 
-            np.savetxt(img_latentspace, embedded_data)
+                np.savetxt(img_latentspace, embedded_data)
 
-            # def save_metadata(file):
-            with open(metadata, 'w') as metadata_file:
-                for c in embedded_labels:
-                    metadata_file.write('{}\n'.format(c))
+                # def save_metadata(file):
+                with open(metadata, 'w') as metadata_file:
+                    for c in embedded_labels:
+                        metadata_file.write('{}\n'.format(c))
 
-        visualize_embeddings(sess, log_dir, eval_writer, params)
+        if params.visualize == 1:
+            visualize_embeddings(sess, log_dir, eval_writer, params)
+            visualize_umap(sess, log_dir, eval_writer, params)
