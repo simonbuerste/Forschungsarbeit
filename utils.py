@@ -4,8 +4,11 @@
 import json
 import logging
 import os
+import io
+import umap
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 from tensorflow.contrib.tensorboard.plugins import projector
 
 
@@ -84,27 +87,81 @@ def samples_latentspace(model_spec):
 
 def visualize_embeddings(sess, log_dir, writer, params):
 
+    # Get latentspace data and labels from saved files
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
-        img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
+        if i % params.save_summary_steps == 0:
+            metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
+            img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
-        latentspace = np.loadtxt(img_latentspace)
-        features = tf.Variable(latentspace, name=('latentspace' + str(i+1)))
-        sub_latentspace.append(features)
-        sub_metadata.append(metadata)
+            latentspace = np.loadtxt(img_latentspace)
+            features = tf.Variable(latentspace, name=('latentspace' + str(i+1)))
+            sub_latentspace.append(features)
+            sub_metadata.append(metadata)
 
+    # Initialize a Saver and variables for embeddings
     saver = tf.train.Saver()
     sess.run(tf.global_variables_initializer())
     save_path = os.path.join(log_dir, 'latentspace')
     saver.save(sess, save_path)
 
+    # Create a Projector for Tensorboard visualization
     config = projector.ProjectorConfig()
     for i in range(params.num_epochs):
-        embedding = config.embeddings.add()
-        embedding.tensor_name = sub_latentspace[i].name
-        embedding.metadata_path = sub_metadata[i]
+        if i % params.save_summary_steps == 0:
+            list_index = i // params.save_summary_steps
+            embedding = config.embeddings.add()
+            embedding.tensor_name = sub_latentspace[list_index].name
+            embedding.metadata_path = sub_metadata[list_index]
 
     # Saves a config file that TensorBoard will read during startup.
     projector.visualize_embeddings(writer, config)
+
+
+def visualize_umap(sess, log_dir, writer, params):
+
+    # Get latentspace data and labels from saved files
+    sub_latentspace = []
+    sub_metadata = []
+    for i in range(params.num_epochs):
+        if i % params.save_summary_steps == 0:
+            metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
+            img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
+
+            latentspace = np.loadtxt(img_latentspace)
+            sub_latentspace.append(latentspace)
+            sub_metadata.append(metadata)
+
+    # Fit UMAP to latentspace data
+    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
+    reducer.fit(sub_latentspace[0])
+
+    for i in range(params.num_epochs):
+        if i % params.save_summary_steps == 0:
+
+            list_index = i // params.save_summary_steps
+            # transform data with UMAP
+            embedding = reducer.transform(sub_latentspace[list_index])
+            labels = np.genfromtxt(fname=sub_metadata[list_index], delimiter="\t")
+
+            # Create Scatter Plot with UMAP-transformed data
+            f = plt.figure(list_index)
+            ax = f.add_subplot(111)
+            ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
+            ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i+1)), fontsize=14)
+
+            # Create a Buffer and write PNG Image to it
+            buf = io.BytesIO()
+            plt.savefig(buf)
+            buf.seek(0)
+
+            # Convert PNG buffer to TF image
+            image = tf.image.decode_png(buf.getvalue(), channels=4)
+            # Add the batch dimension
+            image = tf.expand_dims(image, 0)
+
+            # Write Image to Tensorboard
+            summary_op = tf.summary.image('UMAP Epoch %i' % (i+1), image)
+            summary = sess.run(summary_op)
+            writer.add_summary(summary)
