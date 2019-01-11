@@ -10,7 +10,6 @@ from utils import save_dict_to_json
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
 from metrics import adjuster_rand_index
-from tensorflow.contrib.tensorboard.plugins import projector
 
 
 def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=None):

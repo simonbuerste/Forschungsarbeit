@@ -9,6 +9,7 @@ from utils import samples_latentspace
 from utils import Params
 from VAE import vae_model_fn
 from kMeans import kmeans_model_fn
+from gmm import gmm_model_fn
 
 # Set the random seed for the whole graph for reproducible experiments
 tf.set_random_seed(230)

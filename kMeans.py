@@ -1,8 +1,5 @@
-import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.factorization import KMeans
-from VAE import build_model
-from metrics import cluster_accuracy
 
 
 def build_kmeans_model(inputs, params):
