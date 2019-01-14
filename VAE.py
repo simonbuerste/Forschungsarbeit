@@ -49,7 +49,7 @@ def decoder(sampled_z, prob_keep):
     return img
 
 
-def build_model(inputs, params, keep_prob):
+def build_model(inputs, keep_prob):
 
     img = inputs["img"]
     # Bringing together Encoder and Decoder
@@ -85,7 +85,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        img_loss, latent_loss, sampled = build_model(inputs, params, p_dropout)
+        img_loss, latent_loss, sampled = build_model(inputs, p_dropout)
 
     # Define the Loss
     loss = tf.reduce_mean(img_loss + latent_loss)
