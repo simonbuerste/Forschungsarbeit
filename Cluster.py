@@ -5,11 +5,14 @@ import tensorflow as tf
 import numpy as np
 
 from input_fn import input_fn
-from VAE import vae_model_fn
-from kMeans import kmeans_model_fn
 from utils import samples_latentspace
 from utils import Params
 from evaluation import evaluate
+
+from VAE import vae_model_fn
+from AE import ae_model_fn
+from kMeans import kmeans_model_fn
+from gmm import gmm_model_fn
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -21,7 +24,7 @@ tf.set_random_seed(230)
 config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE/'
 # model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
 
 # restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/best_weights/'
@@ -55,12 +58,12 @@ if __name__ == '__main__':
     cluster_inputs = input_fn(args.data_dir, 'test', params)
 
     # Define the model
-    vae_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=False)
+    latent_model_spec = ae_model_fn('cluster', cluster_inputs, params, reuse=False)
     vars_to_restore = tf.contrib.framework.get_variables_to_restore()
 
     # Input for kMeans is Output of Encoder
-    cluster_inputs["img"] = samples_latentspace(vae_model_spec)
-    cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
+    cluster_inputs["img"] = samples_latentspace(latent_model_spec)
+    cluster_model_spec = gmm_model_fn(cluster_inputs, params)
 
     # Initialize tf.Saver
     saver = tf.train.Saver(vars_to_restore)
