@@ -48,28 +48,30 @@ def input_fn(data_dir, mode, params):
     # Create the link to the file
     filename = os.path.join(data_dir, mode + '.tfrecords')
 
-    # Pipeline of dataset and iterator
-    dataset = tf.data.TFRecordDataset([filename])
-    dataset = dataset.map(extract_fn, num_parallel_calls=2)
-    # dataset = dataset.map(augmentation_fn, num_parallel_calls=2)
-    # Create Training Dataset, shuffle and batch it
-    dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
-    dataset = dataset.batch(params.batch_size)
-    dataset = dataset.prefetch(2)                     # make sure always one batch is ready to serve
+    # Do pipelining explicitly on CPU
+    with tf.device("/cpu:*"):
+        # Pipeline of dataset and iterator
+        dataset = tf.data.TFRecordDataset([filename])
+        dataset = dataset.map(extract_fn, num_parallel_calls=4)
+        # dataset = dataset.map(augmentation_fn, num_parallel_calls=2)
+        # Create Training Dataset, shuffle and batch it
+        dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
+        dataset = dataset.batch(params.batch_size)
+        dataset = dataset.prefetch(4)                     # make sure always one batch is ready to serve
 
-    # Create initializable iterator from Data so that it can be reset at each epoch
-    iterator = dataset.make_initializable_iterator()
+        # Create initializable iterator from Data so that it can be reset at each epoch
+        iterator = dataset.make_initializable_iterator()
 
-    # Query the Output of the Iterator for input to the model
-    img, label, img_shape = iterator.get_next()
-    init_op = iterator.initializer
+        # Query the Output of the Iterator for input to the model
+        img, label, img_shape = iterator.get_next()
+        init_op = iterator.initializer
 
-    # Build and return a dictionary containing the nodes / ops
-    inputs = {
-        'img': img,
-        'labels': label,
-        'img_shape': img_shape,
-        'iterator_init_op': init_op
-    }
+        # Build and return a dictionary containing the nodes / ops
+        inputs = {
+            'img': img,
+            'labels': label,
+            'img_shape': img_shape,
+            'iterator_init_op': init_op
+        }
 
     return inputs

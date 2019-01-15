@@ -19,11 +19,11 @@ tf.set_random_seed(230)
 config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
-# model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE/'
+model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
+# model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
 
-# data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
+data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+# data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default=model_dir,
@@ -57,7 +57,9 @@ if __name__ == '__main__':
     cluster_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=True)
     # Input for kMeans is Output of Encoder
     cluster_inputs["img"] = samples_latentspace(cluster_model_spec)
-    cluster_model_spec = gmm_model_fn(cluster_inputs, params)
+    cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
 
     # Train the model
-    train_and_evaluate(train_model_spec, cluster_model_spec, args.model_dir, params, config)  # add ", restore_dir" if a restore Dir
+
+    with tf.device("/gpu:*"):
+        train_and_evaluate(train_model_spec, cluster_model_spec, args.model_dir, params, config)  # add ", restore_dir" if a restore Dir
