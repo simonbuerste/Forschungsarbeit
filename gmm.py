@@ -5,7 +5,8 @@ from tensorflow.contrib.factorization import gmm
 def build_gmm_model(inputs, params):
     imgs = inputs["img"]
 
-    training_graph = gmm(inp=imgs, initial_clusters='random', num_clusters=params.k, random_seed=42)
+    training_graph = gmm(inp=imgs, initial_clusters='random', num_clusters=params.k, random_seed=42,
+                         covariance_type="diag", params="wmc")
 
     return training_graph
 
