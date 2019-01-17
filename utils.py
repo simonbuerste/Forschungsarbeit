@@ -159,15 +159,8 @@ def visualize_umap(sess, log_dir, writer, params):
             # Create a Buffer and write PNG Image to it
             reliability_image = io.BytesIO()
             plt.savefig(reliability_image)
-            # buf.seek(0)
-
-            # Convert PNG buffer to TF image
-            #image = tf.image.decode_png(buf.getvalue(), channels=4)
-            # Add the batch dimension
-            #image = tf.expand_dims(image, 0)
 
             # Write Image to Tensorboard
             reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
-            # summary_image = sess.run(summary_op)
             summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
             writer.add_summary(summary)
