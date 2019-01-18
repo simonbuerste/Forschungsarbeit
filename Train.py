@@ -20,10 +20,10 @@ config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_thr
 config.gpu_options.allow_growth = True
 
 # model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/'
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE/'
 
 # data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
+data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/F-MNIST'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default=model_dir,
@@ -52,12 +52,12 @@ if __name__ == '__main__':
     cluster_inputs = input_fn(args.data_dir, 'train', params)
 
     # Define the models (2 different set of nodes that share weights for train and eval)
-    train_model_spec = vae_model_fn('train', train_inputs, params)
+    train_model_spec = ae_model_fn('train', train_inputs, params)
 
-    cluster_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=True)
+    cluster_model_spec = ae_model_fn('cluster', cluster_inputs, params, reuse=True)
     # Input for kMeans is Output of Encoder
     cluster_inputs["img"] = samples_latentspace(cluster_model_spec)
-    cluster_model_spec = gmm_model_fn(cluster_inputs, params)
+    cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
 
     # Train the model
 
