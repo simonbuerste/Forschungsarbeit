@@ -11,9 +11,6 @@ import sys
 import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets import mnist
 
-#data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/MNIST'
-data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -23,7 +20,7 @@ def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def convert_to(data_set, name):
+def convert_to(data_set, save_dir, name):
     """Converts a dataset to tfrecords"""
     images = data_set.images
     labels = data_set.labels
@@ -33,7 +30,7 @@ def convert_to(data_set, name):
     cols = images.shape[2]
     depth = images.shape[3]
 
-    filename = os.path.join(data_dir, name + '.tfrecords')
+    filename = os.path.join(save_dir, name + '.tfrecords')
     with tf.python_io.TFRecordWriter(filename) as writer:
         for index in range(num_samples):
             image_raw = images[index].tostring()
@@ -49,12 +46,17 @@ def convert_to(data_set, name):
             writer.write(example.SerializeToString())
 
 
-# Get the data
-dataset = mnist.read_data_sets(data_dir,
-                               dtype=tf.uint8,
-                               reshape=False)
+if __name__ == '__main__':
 
-# Convert and write result to TFRecords
-convert_to(dataset.train, 'train')
-convert_to(dataset.validation, 'validation')
-convert_to(dataset.test, 'test')
+    data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/F-MNIST'
+    # data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+
+    # Get the data
+    dataset = mnist.read_data_sets(data_dir,
+                                   dtype=tf.uint8,
+                                   reshape=False)
+
+    # Convert and write result to TFRecords
+    convert_to(dataset.train, data_dir, 'train')
+    #convert_to(dataset.validation, data_dir, 'validation')
+    convert_to(dataset.test, data_dir, 'test')
