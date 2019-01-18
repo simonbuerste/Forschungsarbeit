@@ -20,13 +20,26 @@ def extract_fn(tfrecord):
     # Extract the data record
     sample = tf.parse_single_example(tfrecord, features)
 
+    # Decode image and shape from tfrecord
     img_shape = tf.stack([sample['height'], sample['width'], sample['depth']])
     image = tf.decode_raw(sample['image'], tf.uint8)
+    # ensuring value range between 0 and 1
     image = tf.cast(image, tf.float32)
-    image = image/255  # ensuring value range between 0 and 1
-    #image = tf.reshape(image, img_shape)
+    image = image/255
+    # reshape the image in "original Shape"
+    image = tf.reshape(image, img_shape)
+
+    # Define new Size to resize the image
+    resized_size = (32, 32)
+    image = tf.image.resize_images(image, resized_size)
+
+    # Write new Size to img_shape
+    sample['height'] = resized_size[0]
+    sample['width'] = resized_size[1]
+    img_shape = tf.stack([sample['height'], sample['width'], sample['depth']])
 
     label = sample['label']
+
     return [image, label, img_shape]
 
 
