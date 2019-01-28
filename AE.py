@@ -1,14 +1,5 @@
 import tensorflow as tf
 
-# Set Dimensions for Encoder and Decoder
-dec_in_channels = 1
-n_latent = 8
-width_input_img = 32
-height_imput_img = 32
-
-reshaped_dim = [-1, n_latent, n_latent, dec_in_channels]
-inputs_decoder = int(32 * dec_in_channels)
-
 
 # Define a Leacky ReLu Function
 def lrelu(x, alpha=0.3):
@@ -16,9 +7,9 @@ def lrelu(x, alpha=0.3):
 
 
 # Defining the Encoder
-def encoder(encoder_input, prob_keep):
+def encoder(encoder_input, prob_keep, params):
     activation = lrelu
-    X = tf.reshape(encoder_input, shape=[-1, height_imput_img, width_input_img, 1])
+    X = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     x = tf.layers.conv2d(X, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
     x = tf.nn.dropout(x, prob_keep)
     x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=2, padding='same', activation=activation)
@@ -26,13 +17,16 @@ def encoder(encoder_input, prob_keep):
     x = tf.layers.conv2d(x, filters=64, kernel_size=4, strides=1, padding='same', activation=activation)
     x = tf.nn.dropout(x, prob_keep)
     x = tf.contrib.layers.flatten(x)
-    z = tf.layers.dense(x, units=n_latent)
+    z = tf.layers.dense(x, units=params.n_latent)
 
     return z
 
 
 # Defining the Decoder
-def decoder(sampled_z, prob_keep):
+def decoder(sampled_z, prob_keep, params):
+    reshaped_dim = [-1, params.n_latent, params.n_latent, params.channels]
+    inputs_decoder = int(32 * params.channels)
+
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu)
     x = tf.layers.dense(x, units=inputs_decoder * 2, activation=lrelu)
     x = tf.reshape(x, reshaped_dim)
@@ -43,21 +37,21 @@ def decoder(sampled_z, prob_keep):
     x = tf.layers.conv2d_transpose(x, filters=64, kernel_size=4, strides=1, padding='same', activation=tf.nn.relu)
 
     x = tf.contrib.layers.flatten(x)
-    x = tf.layers.dense(x, units=height_imput_img * width_input_img, activation=tf.nn.sigmoid)
-    img = tf.reshape(x, shape=[-1, height_imput_img, width_input_img])
+    x = tf.layers.dense(x, units=params.resize_height * params.resize_width * params.channels, activation=tf.nn.sigmoid)
+    img = tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
     return img
 
 
-def build_model(inputs, keep_prob):
+def build_model(inputs, keep_prob, params):
 
     img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled = encoder(img, keep_prob)
-    dec = decoder(sampled, keep_prob)
-    # Computing Loss and Enforcing a Gaussian Distribution
+    sampled = encoder(img, keep_prob, params)
+    dec = decoder(sampled, keep_prob, params)
 
-    unreshaped = tf.reshape(dec, [-1, height_imput_img * width_input_img])
-    y_flat = tf.reshape(img, [-1, height_imput_img * width_input_img])
+    # Computing Loss and Enforcing a Gaussian Distribution
+    unreshaped = tf.reshape(dec, [-1, params.resize_height * params.resize_width * params.channels])
+    y_flat = tf.reshape(img, [-1, params.resize_height * params.resize_width * params.channels])
     img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, y_flat), 1)
     return img_loss, sampled
 
@@ -76,14 +70,14 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     """
 
     if mode == 'train':
-        p_dropout = 0.8
+        p_dropout = params.p_dropout
     else:
         p_dropout = 1
 # -----------------------------------------------------------
     # MODEL: define the layers of the model
     with tf.variable_scope('ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        img_loss, sampled = build_model(inputs, p_dropout)
+        img_loss, sampled = build_model(inputs, p_dropout, params)
 
     # Define the Loss
     loss = tf.reduce_mean(img_loss)
