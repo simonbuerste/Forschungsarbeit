@@ -7,7 +7,7 @@ import tensorflow as tf
 import os
 
 
-def extract_fn(tfrecord):
+def extract_fn(tfrecord, params):
     # Extract features using the keys set during creation
     features = {
         'image':       tf.FixedLenFeature([], tf.string),
@@ -21,21 +21,22 @@ def extract_fn(tfrecord):
     sample = tf.parse_single_example(tfrecord, features)
 
     # Decode image and shape from tfrecord
-    img_shape = tf.stack([sample['height'], sample['width'], sample['depth']])
+    img_shape = tf.stack([sample['depth'], sample['width'], sample['height']])
     image = tf.decode_raw(sample['image'], tf.uint8)
     # ensuring value range between 0 and 1
     image = tf.cast(image, tf.float32)
     image = image/255
     # reshape the image in "original Shape"
     image = tf.reshape(image, img_shape)
+    # Transpose Image for tensorflow notation (width, heigth, num_channel)
+    image = tf.transpose(image, (2, 1, 0))
 
     # Define new Size to resize the image
-    resized_size = (32, 32)
-    image = tf.image.resize_images(image, resized_size)
+    image = tf.image.resize_images(image, (params.resize_height, params.resize_width))
 
     # Write new Size to img_shape
-    sample['height'] = resized_size[0]
-    sample['width'] = resized_size[1]
+    sample['height'] = params.resize_height
+    sample['width'] = params.resize_width
     img_shape = tf.stack([sample['height'], sample['width'], sample['depth']])
 
     label = sample['label']
@@ -65,7 +66,7 @@ def input_fn(data_dir, mode, params):
     with tf.device("/cpu:*"):
         # Pipeline of dataset and iterator
         dataset = tf.data.TFRecordDataset([filename])
-        dataset = dataset.map(extract_fn, num_parallel_calls=4)
+        dataset = dataset.map(lambda x: extract_fn(x, params), num_parallel_calls=4)
         # dataset = dataset.map(augmentation_fn, num_parallel_calls=2)
         # Create Training Dataset, shuffle and batch it
         dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
