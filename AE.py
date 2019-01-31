@@ -84,7 +84,7 @@ def ae_model_fn(mode, inputs, params, reuse=False):
 
     # Define training step that minimizes the loss with the Adam optimizer
     if mode == 'train':
-        optimizer = tf.train.AdamOptimizer(0.0005)
+        optimizer = tf.train.AdamOptimizer(params.training_rate)
         global_step = tf.train.get_or_create_global_step()
         train_op = optimizer.minimize(loss, global_step=global_step)
 
