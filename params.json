@@ -1,10 +1,11 @@
 {
     "batch_size":           200,
     "buffer_size":          10000,
-    "train_size":           1000,
+    "train_size":           600,
     "eval_size":            200,
-    "num_epochs":           5,
+    "num_epochs":           10,
     "save_summary_steps":   1,
+    "evaluation_step":      1,
     "k":                    15,
     "num_classes":          10,
     "visualize":            1,

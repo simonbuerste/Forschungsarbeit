@@ -4,7 +4,6 @@ import logging
 import tensorflow as tf
 import numpy as np
 
-#from tqdm import trange
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
@@ -33,8 +32,6 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     sess.run(model_spec['iterator_init_op'])
     sess.run(model_spec['metrics_init_op'])
 
-    # Use tqdm for progress bar
-    #t = trange(num_steps)
     for i in range(num_steps):
         # Evaluate summaries for tensorboard only once in a while
         if i % params.save_summary_steps == 0:
@@ -43,10 +40,11 @@ def train_sess(sess, model_spec, num_steps, writer, params):
                                                               summary_op, global_step])
             # Write summaries for tensorboard
             writer.add_summary(summ, global_step_val)
+
+            # Output Training Loss after each summary step
+            print("Training_loss after Step ", global_step_val, ":", loss_val)
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss])
-        # Log the loss in the tqdm progress bar
-        #t.set_postfix(loss='{:05.3f}'.format(loss_val))
 
     metrics_values = {k: v[0] for k, v in metrics.items()}
     metrics_val = sess.run(metrics_values)
@@ -105,17 +103,20 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             #last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
             #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
-            # Evaluate for one epoch on validation set
-            num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
-            metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
-                                                                         eval_writer, params)
+            # Do evaulation session just at defined steps or last epoch
+            if epoch % params.evaluation_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
+                # Evaluate for one epoch on validation set
+                num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
+                metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
+                                                                             eval_writer, params)
+                print("Cluster_acc after Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
 
             # If best_eval, best_save_path
-            metrics_eval['VAE_loss'] = metrics_train['loss']
-            eval_loss = metrics_eval['VAE_loss']
-            if eval_loss <= best_eval_loss:
+            metrics_eval['Model_loss'] = metrics_train['loss']
+
+            if metrics_eval['Model_loss'] <= best_eval_loss:
                 # Store new best accuracy
-                best_eval_loss = eval_loss
+                best_eval_loss = metrics_eval['Model_loss']
                 # Save weights
                 best_save_path = os.path.join(model_dir, 'best_weights/', 'after-epoch')
                 best_save_path = best_saver.save(sess, best_save_path, global_step=epoch + 1)
@@ -125,8 +126,6 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             # Save latest eval metrics in a json file in the model directory
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
-            print("Eval_acc after Epoch ", epoch+1, ":", metrics_eval['Accuracy'])
-            print("VAE_loss after Epoch ", epoch+1, ":", eval_loss)
 
             save_dict_to_json(metrics_eval, last_json_path)
 
@@ -141,6 +140,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
                 with open(metadata, 'w') as metadata_file:
                     for c in embedded_labels:
                         metadata_file.write('{}\n'.format(c))
+
+            print("Epoch", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/params.num_epochs), "% done")
 
         if params.visualize == 1:
             visualize_embeddings(sess, log_dir, eval_writer, params)
