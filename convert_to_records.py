@@ -16,9 +16,9 @@ import tensorflow as tf
 from tensorflow.contrib.learn.python.learn.datasets import mnist
 
 # CIFAR-10/CIFAR-100 Data
-CIFAR_FILENAME = 'cifar-100-python.tar.gz'
+CIFAR_FILENAME = 'cifar-10-python.tar.gz'
 CIFAR_DOWNLOAD_URL = 'https://www.cs.toronto.edu/~kriz/' + CIFAR_FILENAME
-CIFAR_LOCAL_FOLDER = 'cifar-100-python'
+CIFAR_LOCAL_FOLDER = 'cifar-10-batches-py'
 
 
 def download_and_extract(data_dir):
@@ -32,8 +32,7 @@ def download_and_extract(data_dir):
 def _get_file_names():
     """Returns the file names expected to exist in the input_dir."""
     file_names = {}
-    file_names['train'] = ['data_batch_%d' % i for i in xrange(1, 5)]
-    file_names['validation'] = ['data_batch_5']
+    file_names['train'] = ['data_batch_%d' % i for i in xrange(1, 6)]
     file_names['test'] = ['test_batch']
 
     return file_names
@@ -89,7 +88,7 @@ def convert_pickle_to_tfrecord(input_files, output_file):
         for input_file in input_files:
             data_dict = read_pickle_from_file(input_file)
             data = data_dict[b'data']
-            labels = data_dict[b'coarse_labels']
+            labels = data_dict[b'labels']
             num_entries_in_batch = len(labels)
             for i in range(num_entries_in_batch):
                 example = tf.train.Example(
@@ -107,15 +106,16 @@ def convert_pickle_to_tfrecord(input_files, output_file):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default="cifar-100",
+    parser.add_argument('--dataset', default="mnist",
                         help="Dataset which should be converted")
-    data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/CIFAR-100'
+    data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data'
     # data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
     parser.add_argument('--data_dir', default=data_dir,
                         help="Directory containing the dataset")
 
     # Load the parameters
     args = parser.parse_args()
+    data_dir = os.path.join(data_dir, args.dataset)
 
     if args.dataset == "mnist" or args.dataset == "f-mnist":  # Mnist / Fashion Mnist data
         dataset = mnist.read_data_sets(data_dir,
