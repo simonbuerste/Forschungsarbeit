@@ -21,16 +21,15 @@ def extract_fn(tfrecord, params):
     sample = tf.parse_single_example(tfrecord, features)
 
     # Decode image and shape from tfrecord
-    img_shape = tf.stack([sample['depth'], sample['width'], sample['height']])
+    img_shape = tf.stack([sample['depth'], sample['height'], sample['width']])
     image = tf.decode_raw(sample['image'], tf.uint8)
     # ensuring value range between 0 and 1
     image = tf.cast(image, tf.float32)
     image = image/255
     # reshape the image in "original Shape"
     image = tf.reshape(image, img_shape)
-    # Transpose Image for tensorflow notation (width, heigth, num_channel)
-    image = tf.transpose(image, (2, 1, 0))
-
+    # Transpose Image for tensorflow notation (heigth, width, num_channel)
+    image = tf.transpose(image, (1, 2, 0))
     # Define new Size to resize the image
     image = tf.image.resize_images(image, (params.resize_height, params.resize_width))
 
@@ -61,6 +60,12 @@ def input_fn(data_dir, mode, params):
 
     # Create the link to the file
     filename = os.path.join(data_dir, mode + '.tfrecords')
+
+    # Write channel number to params dict
+    if "MNIST" in filename:
+        params.channels = 1
+    elif "CIFAR-10" or "IMAGENET" in filename:
+        params.channels = 3
 
     # Do pipelining explicitly on CPU
     with tf.device("/cpu:*"):
