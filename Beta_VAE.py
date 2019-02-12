@@ -57,7 +57,7 @@ def build_model(inputs, keep_prob, params):
     y_flat = tf.reshape(img, [-1, params.resize_height * params.resize_width * params.channels])
     img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, y_flat), 1)
     latent_loss = -0.5 * tf.reduce_sum(1.0 + 2.0 * sd - tf.square(mn) - tf.exp(2.0 * sd), 1)
-    return img_loss, latent_loss, sampled
+    return img_loss, latent_loss, sampled, dec
 
 
 def b_vae_model_fn(mode, inputs, params, reuse=False):
@@ -81,7 +81,7 @@ def b_vae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        img_loss, latent_loss, sampled = build_model(inputs, p_dropout, params)
+        img_loss, latent_loss, sampled, reconstructions = build_model(inputs, p_dropout, params)
 
     # Define the Loss
     loss = tf.reduce_mean(img_loss + params.beta*latent_loss)
@@ -109,6 +109,9 @@ def b_vae_model_fn(mode, inputs, params, reuse=False):
 
     # Summaries for training
     tf.summary.scalar('loss', loss)
+    # Summary for reconstruction and original image with max_outpus images
+    tf.summary.image('Images', inputs['img'], max_outputs=3, collections=None, family=None)
+    tf.summary.image('Reconstructions', reconstructions, max_outputs=3, collections=None, family=None)
 
     # -----------------------------------------------------------
     # MODEL SPECIFICATION
@@ -122,6 +125,7 @@ def b_vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['metrics'] = metrics
     model_spec['update_metrics'] = update_metrics_op
     model_spec['summary_op'] = tf.summary.merge_all()
+    model_spec['reconstructions'] = reconstructions
 
     if mode == 'train':
         model_spec['train_op'] = train_op

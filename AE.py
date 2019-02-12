@@ -53,7 +53,7 @@ def build_model(inputs, keep_prob, params):
     unreshaped = tf.reshape(dec, [-1, params.resize_height * params.resize_width * params.channels])
     y_flat = tf.reshape(img, [-1, params.resize_height * params.resize_width * params.channels])
     img_loss = tf.reduce_sum(tf.squared_difference(unreshaped, y_flat), 1)
-    return img_loss, sampled
+    return img_loss, sampled, dec
 
 
 def ae_model_fn(mode, inputs, params, reuse=False):
@@ -77,7 +77,7 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        img_loss, sampled = build_model(inputs, p_dropout, params)
+        img_loss, sampled, reconstructions = build_model(inputs, p_dropout, params)
 
     # Define the Loss
     loss = tf.reduce_mean(img_loss)
@@ -105,6 +105,9 @@ def ae_model_fn(mode, inputs, params, reuse=False):
 
     # Summaries for training
     tf.summary.scalar('loss', loss)
+    # Summary for reconstruction and original image with max_outpus images
+    tf.summary.image('Images', inputs['img'], max_outputs=3, collections=None, family=None)
+    tf.summary.image('Reconstructions', reconstructions, max_outputs=3, collections=None, family=None)
 
     # -----------------------------------------------------------
     # MODEL SPECIFICATION
@@ -118,6 +121,7 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['metrics'] = metrics
     model_spec['update_metrics'] = update_metrics_op
     model_spec['summary_op'] = tf.summary.merge_all()
+    model_spec['reconstructions'] = reconstructions
 
     if mode == 'train':
         model_spec['train_op'] = train_op
