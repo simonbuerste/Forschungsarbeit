@@ -23,7 +23,6 @@ def gmm_model_fn(inputs, params, reuse=False):
     # cluster_idx - Returns a list of Tensors with the matrix of assignments per shard
     loss, scores, cluster_idx, train_op, init_op, cluster_centers_initialized = training_graph
 
-
     global_step = tf.train.get_or_create_global_step()
     cluster_idx = cluster_idx[0][0]  # fix for cluster_idx being a list of tuple
 
@@ -33,7 +32,7 @@ def gmm_model_fn(inputs, params, reuse=False):
 
     with tf.variable_scope("kmeans_metrics"):
         metrics = {
-            'loss': tf.metrics.mean(scores)
+            'score': tf.metrics.mean(scores)
         }
 
     # Group the update ops for the tf.metrics
@@ -44,7 +43,7 @@ def gmm_model_fn(inputs, params, reuse=False):
     metrics_init_op = tf.variables_initializer(metric_variables)
 
     # Summaries for training
-    tf.summary.scalar('loss', scores)
+    tf.summary.scalar('score', scores)
 
     # -----------------------------------------------------------
     # MODEL SPECIFICATION
@@ -53,7 +52,7 @@ def gmm_model_fn(inputs, params, reuse=False):
     model_spec = inputs
     variable_init_op = tf.group(*[tf.global_variables_initializer(), tf.tables_initializer()])
     model_spec['variable_init_op'] = variable_init_op
-    model_spec['loss'] = scores
+    model_spec['score'] = scores
     model_spec['cluster_idx'] = cluster_idx
     model_spec['metrics_init_op'] = metrics_init_op
     model_spec['metrics'] = metrics
