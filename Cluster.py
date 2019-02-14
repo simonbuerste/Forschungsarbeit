@@ -2,31 +2,34 @@ import os
 import argparse
 
 import tensorflow as tf
-import numpy as np
+
+from time import gmtime, strftime
+from shutil import copyfile
 
 from input_fn import input_fn
-from utils import samples_latentspace
+from training import train_and_evaluate
 from utils import Params
 from evaluation import evaluate
 
-from VAE import vae_model_fn
+from D_VAE1 import vae_model_fn
 from Beta_VAE import b_vae_model_fn
-from AE import ae_model_fn
+from D_AE1 import ae_model_fn
+
 from kMeans import kmeans_model_fn
 from gmm import gmm_model_fn
 
-# Set the random seed for the whole graph for reproductible experiments
+# Set the random seed for the whole graph for reproducible experiments
 tf.set_random_seed(230)
 
 
 config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
-# model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'models', 'VAE')
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
+model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models')
+#model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
 
-# data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
-data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
+data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
+#data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
 
 # restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/VAE/best_weights/'
 restore_from = 'best_weights'
@@ -58,11 +61,15 @@ if __name__ == '__main__':
     json_path = os.path.join(script_dir, 'params.json')
     params = Params(json_path)
 
+    # get current time as string for saving of model
+    timestring = "2019-02-14_13-50"
+
     data_dir = os.path.join(data_dir, args.dataset)
-    model_dir = os.path.join(model_dir, args.latent_model, args.dataset, args.cluster_model)
-    # Create directory for model combination if not existens
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
+    model_dir = os.path.join(model_dir, (args.latent_model + '_' + args.dataset + '_' + args.cluster_model + '_'
+                                         + timestring))
+
+    # copy params.json file to the model direction for reproducible results
+    copyfile(json_path, os.path.join(model_dir, 'params_clustering.json'))
 
     # Creates an iterator and a dataset
     cluster_inputs = input_fn(data_dir, 'test', params)
@@ -80,7 +87,7 @@ if __name__ == '__main__':
     vars_to_restore = tf.contrib.framework.get_variables_to_restore()
 
     # Input for Clustering is Output of Encoder
-    cluster_inputs["img"] = samples_latentspace(latent_model_spec)
+    cluster_inputs["samples"] = latent_model_spec['sample']
 
     # Desired Cluster model is selected
     if args.cluster_model == 'kmeans':

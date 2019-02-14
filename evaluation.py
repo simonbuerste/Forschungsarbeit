@@ -44,7 +44,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
 
         _, _, idx, labels, img = sess.run(
             [model_spec['train_op'], update_metrics, model_spec['cluster_idx'], model_spec["labels"],
-             model_spec["img"]])
+             model_spec["sample"]])
 
         # Input set for TensorBoard visualization
         if params.visualize == 1:
@@ -127,7 +127,7 @@ def evaluate(model_spec, model_dir, params, restore_from, config, saver):
 
         cluster_writer = tf.summary.FileWriter(os.path.join(model_dir, 'cluster_summaries'), sess.graph)
 
-        num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
+        num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
         best_test_acc = 0.0
         for epoch in range(params.num_epochs):

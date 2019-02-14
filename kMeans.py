@@ -3,9 +3,9 @@ from tensorflow.contrib.factorization import KMeans
 
 
 def build_kmeans_model(inputs, params):
-    imgs = inputs["img"]
+    imgs = inputs["samples"]
 
-    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='cosine', use_mini_batch=True,
+    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='cosine', use_mini_batch=False,
                           mini_batch_steps_per_iteration=1)
 
     # Build KMeans graph

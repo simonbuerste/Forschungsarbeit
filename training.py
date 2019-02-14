@@ -96,7 +96,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
-            num_steps = (params.train_size + params.batch_size - 1) // params.batch_size
+            num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
             metrics_train = train_sess(sess, train_model_spec, num_steps, train_writer, params)
 
             # Save weights
@@ -106,7 +106,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             # Do evaulation session just at defined steps or last epoch
             if epoch % params.evaluation_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
                 # Evaluate for one epoch on validation set
-                num_steps = (params.eval_size + params.batch_size - 1) // params.batch_size
+                num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
                 metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
                                                                              eval_writer, params)
                 print("Cluster_acc after Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
@@ -129,8 +129,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             save_dict_to_json(metrics_eval, last_json_path)
 
-            if (params.visualize == 1) and (epoch % params.save_summary_steps == 0):
-                log_dir = eval_writer.get_logdir()
+            if (params.visualize == 1) and ((epoch % params.visualization_step == 0) or (epoch == begin_at_epoch + params.num_epochs - 1)):
+                log_dir = train_writer.get_logdir()
                 metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
                 img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
 
@@ -144,5 +144,5 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             print("Epoch", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/params.num_epochs), "% done")
 
         if params.visualize == 1:
-            visualize_embeddings(sess, log_dir, eval_writer, params)
-            visualize_umap(sess, log_dir, eval_writer, params)
+            visualize_embeddings(sess, log_dir, train_writer, params)
+            visualize_umap(sess, log_dir, train_writer, params)

@@ -55,8 +55,10 @@ def input_fn(data_dir, mode, params):
 
     if mode == "train":
         buffer_size = params.buffer_size
+        batch_size = params.train_batch_size
     else:
         buffer_size = 1
+        batch_size = params.eval_batch_size
 
     # Create the link to the file
     filename = os.path.join(data_dir, mode + '.tfrecords')
@@ -67,16 +69,30 @@ def input_fn(data_dir, mode, params):
     elif "CIFAR-10" or "IMAGENET" in filename:
         params.channels = 3
 
+
+    # Write class number to params dict
+    if "MNIST" in filename:  # Mnist and Fashion Mnist
+        params.channels = 1
+        params.num_classes = 10
+    elif "CIFAR-10" or "IMAGENET" in filename:
+        params.channels = 3
+        if "CIFAR-100" in filename:
+            params.num_classes = 20
+        elif "IMAGENET" in filename:
+            params.num_classes = 1000
+        else:  # CIFAR-10 case
+            params.num_classes = 10
+
     # Do pipelining explicitly on CPU
     with tf.device("/cpu:*"):
         # Pipeline of dataset and iterator
         dataset = tf.data.TFRecordDataset([filename])
-        dataset = dataset.map(lambda x: extract_fn(x, params), num_parallel_calls=4)
+        dataset = dataset.map(lambda x: extract_fn(x, params), num_parallel_calls=2)
         # dataset = dataset.map(augmentation_fn, num_parallel_calls=2)
         # Create Training Dataset, shuffle and batch it
         dataset = dataset.shuffle(buffer_size)    # if you want to shuffle the Data
-        dataset = dataset.batch(params.batch_size)
-        dataset = dataset.prefetch(4)                     # make sure always one batch is ready to serve
+        dataset = dataset.batch(batch_size)
+        dataset = dataset.prefetch(2)                     # make sure always one batch is ready to serve
 
         # Create initializable iterator from Data so that it can be reset at each epoch
         iterator = dataset.make_initializable_iterator()

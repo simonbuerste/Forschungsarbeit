@@ -85,18 +85,13 @@ def save_dict_to_json(d, json_path):
         json.dump(d, f, indent=4)
 
 
-def samples_latentspace(model_spec):
-    sampled = model_spec['sample']
-    return sampled
-
-
 def visualize_embeddings(sess, log_dir, writer, params):
 
     # Get latentspace data and labels from saved files
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if i % params.save_summary_steps == 0:
+        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -114,8 +109,8 @@ def visualize_embeddings(sess, log_dir, writer, params):
     # Create a Projector for Tensorboard visualization
     config = projector.ProjectorConfig()
     for i in range(params.num_epochs):
-        if i % params.save_summary_steps == 0:
-            list_index = i // params.save_summary_steps
+        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
+            list_index = i // params.visualization_step
             embedding = config.embeddings.add()
             embedding.tensor_name = sub_latentspace[list_index].name
             embedding.metadata_path = sub_metadata[list_index]
@@ -130,7 +125,7 @@ def visualize_umap(sess, log_dir, writer, params):
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if i % params.save_summary_steps == 0:
+        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -138,16 +133,16 @@ def visualize_umap(sess, log_dir, writer, params):
             sub_latentspace.append(latentspace)
             sub_metadata.append(metadata)
 
-    # Fit UMAP to latentspace data
-    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
-    reducer.fit(sub_latentspace[0])
-
     for i in range(params.num_epochs):
-        if i % params.save_summary_steps == 0:
+        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
+            list_index = i // params.visualization_step
 
-            list_index = i // params.save_summary_steps
-            # transform data with UMAP
+            # Fit UMAP to latentspace data
+            reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
+            reducer.fit(sub_latentspace[list_index])
             embedding = reducer.transform(sub_latentspace[list_index])
+
+            # Read Labels from txt
             labels = np.genfromtxt(fname=sub_metadata[list_index], delimiter="\t")
 
             # Create Scatter Plot with UMAP-transformed data
