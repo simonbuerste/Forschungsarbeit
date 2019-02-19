@@ -5,7 +5,7 @@ from tensorflow.contrib.factorization import KMeans
 def build_kmeans_model(inputs, params):
     imgs = inputs["samples"]
 
-    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='squared_euclidean', use_mini_batch=False,
+    kmeans_model = KMeans(inputs=imgs, num_clusters=params.k, distance_metric='cosine', use_mini_batch=False,
                           mini_batch_steps_per_iteration=1, initial_clusters='kmeans_plus_plus')
 
     # Build KMeans graph

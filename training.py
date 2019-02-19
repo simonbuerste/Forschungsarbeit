@@ -140,7 +140,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
             save_dict_to_json(metrics_eval, last_json_path)
 
-            print("Epoch", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/params.num_epochs), "% done")
+            print("Epoch", epoch + 1, "finished -> you are getting closer: %.1f" % (((epoch + 1)/params.num_epochs)*100), "% done")
 
         if params.visualize == 1:
             visualize_embeddings(sess, log_dir, train_writer, params)
