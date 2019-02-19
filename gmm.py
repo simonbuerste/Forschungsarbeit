@@ -27,25 +27,6 @@ def gmm_model_fn(inputs, params, reuse=False):
     cluster_idx = cluster_idx[0][0]  # fix for cluster_idx being a list of tuple
 
     # -----------------------------------------------------------
-    # METRICS AND SUMMARIES
-    # Metrics for evaluation using tf.metrics (average over whole dataset)
-
-    with tf.variable_scope("kmeans_metrics"):
-        metrics = {
-            'score': tf.metrics.mean(scores)
-        }
-
-    # Group the update ops for the tf.metrics
-    update_metrics_op = tf.group(*[op for _, op in metrics.values()])
-
-    # Get the op to reset the local variables used in tf.metrics
-    metric_variables = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="kmeans_metrics")
-    metrics_init_op = tf.variables_initializer(metric_variables)
-
-    # Summaries for training
-    tf.summary.scalar('score', scores)
-
-    # -----------------------------------------------------------
     # MODEL SPECIFICATION
     # Create the model specification and return it
     # It contains nodes or operations in the graph that will be used for training and evaluation
@@ -54,10 +35,6 @@ def gmm_model_fn(inputs, params, reuse=False):
     model_spec['variable_init_op'] = variable_init_op
     model_spec['score'] = scores
     model_spec['cluster_idx'] = cluster_idx
-    model_spec['metrics_init_op'] = metrics_init_op
-    model_spec['metrics'] = metrics
-    model_spec['update_metrics'] = update_metrics_op
-    model_spec['summary_op'] = tf.summary.merge_all()
     model_spec['train_op'] = train_op
     model_spec['init_op'] = init_op
     model_spec['cluster_center_initialized'] = cluster_centers_initialized
