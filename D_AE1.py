@@ -10,16 +10,17 @@ def lrelu(x, alpha=0.2):
 def encoder(encoder_input, is_training, params):
     x = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print('-------Encoder-------')
+    layer_features = []
     for k in range(4):
         print(x.get_shape())
         x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=3, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
-        x = tf.nn.leaky_relu(x,alpha=0.2)
+        x = tf.nn.leaky_relu(x, alpha=0.2)
 
         if k < 3:
             x = tf.layers.max_pooling2d(x, 2, 2)
-
+            layer_features.append(x)
 
     # Last layer average pooling
     x = tf.layers.average_pooling2d(x, 4, 4)
@@ -32,7 +33,7 @@ def encoder(encoder_input, is_training, params):
     print(z.get_shape())
     print('-------Encoder-------')
 
-    return z
+    return z, layer_features
 
 
 # Defining the Decoder
@@ -47,30 +48,39 @@ def decoder(sampled_z, is_training, params):
     print(x.get_shape())
     x = tf.reshape(x, reshaped_dim)
     print(x.get_shape())
+
+    layer_features = []
     for k in range(4):
         x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
         print(x.get_shape())
+        if k < 3:
+            layer_features.append(x)
 
     reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
-    return reconstructed_mean
+    return reconstructed_mean, layer_features
 
 
 def build_model(inputs, is_training, params):
 
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled = encoder(original_img, is_training, params)
-    reconstructed_mean = decoder(sampled, is_training, params)
+    sampled, features_encoder = encoder(original_img, is_training, params)
+    reconstructed_mean, features_decoder = decoder(sampled, is_training, params)
 
+    feature_loss = []
+    for k in range(len(features_encoder)):
+        feature_loss.append(tf.losses.mean_squared_error(labels=features_encoder[k],
+                                                         predictions=features_decoder[len(features_decoder)-(k+1)]))
+    feature_loss = tf.reduce_mean(feature_loss)
     loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
 
-    return loss_square, sampled, reconstructed_mean
+    return loss_square, sampled, reconstructed_mean, feature_loss
 
 
 def ae_model_fn(mode, inputs, params, reuse=False):
@@ -94,14 +104,14 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, sampled, reconstructed_mean = build_model(inputs, is_training, params)
+        loss_likelihood, sampled, reconstructed_mean, feature_loss = build_model(inputs, is_training, params)
 
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood)
+    loss = tf.reduce_mean(loss_likelihood+params.beta*feature_loss)
 
     # Define training step that minimizes the loss with the Adam optimizer
     if mode == 'train':
-        optimizer = tf.train.AdamOptimizer(0.0005)
+        optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
         global_step = tf.train.get_or_create_global_step()
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=global_step)
@@ -125,6 +135,7 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     # Summaries for training
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
+    tf.summary.scalar('feature_loss', feature_loss)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
     tf.summary.image('Reconstructions', tf.sigmoid(reconstructed_mean), max_outputs=6, collections=None, family=None)
