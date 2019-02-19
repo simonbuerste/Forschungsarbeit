@@ -91,7 +91,7 @@ def visualize_embeddings(sess, log_dir, writer, params):
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
+        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -108,12 +108,13 @@ def visualize_embeddings(sess, log_dir, writer, params):
 
     # Create a Projector for Tensorboard visualization
     config = projector.ProjectorConfig()
+    list_index = 0
     for i in range(params.num_epochs):
-        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
-            list_index = i // params.visualization_step
+        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
             embedding = config.embeddings.add()
             embedding.tensor_name = sub_latentspace[list_index].name
             embedding.metadata_path = sub_metadata[list_index]
+            list_index += 1
 
     # Saves a config file that TensorBoard will read during startup.
     projector.visualize_embeddings(writer, config)
@@ -125,7 +126,7 @@ def visualize_umap(sess, log_dir, writer, params):
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
+        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -133,10 +134,9 @@ def visualize_umap(sess, log_dir, writer, params):
             sub_latentspace.append(latentspace)
             sub_metadata.append(metadata)
 
+    list_index = 0
     for i in range(params.num_epochs):
-        if i % params.visualization_step == 0 or i == params.num_epochs - 1:
-            list_index = i // params.visualization_step
-
+        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
             # Fit UMAP to latentspace data
             reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
             reducer.fit(sub_latentspace[list_index])
@@ -159,3 +159,5 @@ def visualize_umap(sess, log_dir, writer, params):
             reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
             summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
             writer.add_summary(summary)
+            
+            list_index += 1

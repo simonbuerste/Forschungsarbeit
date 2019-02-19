@@ -28,7 +28,9 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
 
     # Load the evaluation dataset into the pipeline and initialize the metrics init op
     sess.run(model_spec['iterator_init_op'])
-    clusters_initialized = sess.run(model_spec['cluster_center_initialized'])
+    
+    # Initialize the cluster centers for each epoch (at least one iteration necessary)
+    clusters_initialized = False
     while not clusters_initialized:
         sess.run(model_spec['init_op'])
         clusters_initialized = sess.run(model_spec['cluster_center_initialized'])
@@ -36,14 +38,22 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     sess.run(model_spec['metrics_init_op'])
     sess.run(model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
 
+    # train the clustering algorithm
+    for i in range(10):
+        for i in range(num_steps):
+            sess.run(model_spec['train_op'])
+        sess.run(model_spec['iterator_init_op'])
+
+    sess.run(model_spec['iterator_init_op'])
+    
     accuracy = 0
     nmi = 0
     ari = 0
+    
     # compute metrics over the dataset
     for i in range(num_steps):
-
-        _, _, idx, labels, img = sess.run(
-            [model_spec['train_op'], update_metrics, model_spec['cluster_idx'], model_spec["labels"],
+        _, idx, labels, img = sess.run(
+            [update_metrics, model_spec['cluster_idx'], model_spec["labels"],
              model_spec["sample"]])
 
         # Input set for TensorBoard visualization

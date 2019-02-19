@@ -92,7 +92,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             best_eval_loss = best_eval_metrics.VAE_loss
         else:
             best_eval_loss = 10000.0
-
+            
+        metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
@@ -103,13 +104,23 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             #last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
             #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
-            # Do evaulation session just at defined steps or last epoch
-            if epoch % params.evaluation_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
+            # Do evaulation session just at defined steps or last epoch and after appropriate pretraining
+            if (epoch % params.eval_visu_step == 0 and epoch > 10) or epoch == begin_at_epoch + params.num_epochs - 1:
                 # Evaluate for one epoch on validation set
-                num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
+                num_steps = (params.eval_visu_step + params.eval_batch_size - 1) // params.eval_batch_size
                 metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
                                                                              eval_writer, params)
                 print("Cluster_acc after Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
+                log_dir = train_writer.get_logdir()
+                metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
+                img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
+
+                np.savetxt(img_latentspace, embedded_data)
+
+                # def save_metadata(file):
+                with open(metadata, 'w') as metadata_file:
+                    for c in embedded_labels:
+                        metadata_file.write('{}\n'.format(c))
 
             # If best_eval, best_save_path
             metrics_eval['Model_loss'] = metrics_train['loss']
@@ -128,18 +139,6 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
 
             save_dict_to_json(metrics_eval, last_json_path)
-
-            if (params.visualize == 1) and ((epoch % params.visualization_step == 0) or (epoch == begin_at_epoch + params.num_epochs - 1)):
-                log_dir = train_writer.get_logdir()
-                metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
-                img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
-
-                np.savetxt(img_latentspace, embedded_data)
-
-                # def save_metadata(file):
-                with open(metadata, 'w') as metadata_file:
-                    for c in embedded_labels:
-                        metadata_file.write('{}\n'.format(c))
 
             print("Epoch", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/params.num_epochs), "% done")
 
