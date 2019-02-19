@@ -91,7 +91,7 @@ def visualize_embeddings(sess, log_dir, writer, params):
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
+        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -110,7 +110,7 @@ def visualize_embeddings(sess, log_dir, writer, params):
     config = projector.ProjectorConfig()
     list_index = 0
     for i in range(params.num_epochs):
-        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
+        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
             embedding = config.embeddings.add()
             embedding.tensor_name = sub_latentspace[list_index].name
             embedding.metadata_path = sub_metadata[list_index]
@@ -126,7 +126,7 @@ def visualize_umap(sess, log_dir, writer, params):
     sub_latentspace = []
     sub_metadata = []
     for i in range(params.num_epochs):
-        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
+        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
             metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
             img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
 
@@ -136,7 +136,7 @@ def visualize_umap(sess, log_dir, writer, params):
 
     list_index = 0
     for i in range(params.num_epochs):
-        if (i % params.eval_visu_step == 0 and i > 10) or i == params.num_epochs - 1:
+        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
             # Fit UMAP to latentspace data
             reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
             reducer.fit(sub_latentspace[list_index])

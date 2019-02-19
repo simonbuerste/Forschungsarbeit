@@ -32,8 +32,11 @@ def kmeans_model_fn(inputs, params, reuse=False):
     # Create the model specification and return it
     # It contains nodes or operations in the graph that will be used for training and evaluation
     model_spec = inputs
+    collection = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='kmeans')
+    reset_op = tf.initialize_variables(collection)
     variable_init_op = tf.group(*[tf.global_variables_initializer(), tf.tables_initializer()])
     model_spec['variable_init_op'] = variable_init_op
+    model_spec['reset_op'] = reset_op
     model_spec['score'] = scores
     model_spec['cluster_idx'] = cluster_idx
     model_spec['train_op'] = train_op

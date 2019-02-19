@@ -29,18 +29,17 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     # Load the evaluation dataset into the pipeline and initialize the metrics init op
     sess.run(model_spec['iterator_init_op'])
     
-    # Initialize the cluster centers for each epoch (at least one iteration necessary)
-    clusters_initialized = False
-    while not clusters_initialized:
+    # Initialize the cluster centers for each epoch (Cluster Variables have to be initialized ("reset") again therefore)
+    sess.run(model_spec['reset_op'])
+    while not sess.run(model_spec['cluster_center_initialized']):
         sess.run(model_spec['init_op'])
-        clusters_initialized = sess.run(model_spec['cluster_center_initialized'])
 
     sess.run(model_spec['metrics_init_op'])
     sess.run(model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
 
     # train the clustering algorithm
-    for i in range(10):
-        for i in range(num_steps):
+    for _ in range(params.cluster_training_epochs):
+        for _ in range(num_steps):
             sess.run(model_spec['train_op'])
         sess.run(model_spec['iterator_init_op'])
 

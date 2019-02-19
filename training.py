@@ -105,7 +105,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
             # Do evaulation session just at defined steps or last epoch and after appropriate pretraining
-            if (epoch % params.eval_visu_step == 0 and epoch > 10) or epoch == begin_at_epoch + params.num_epochs - 1:
+            if epoch % params.eval_visu_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
                 # Evaluate for one epoch on validation set
                 num_steps = (params.eval_visu_step + params.eval_batch_size - 1) // params.eval_batch_size
                 metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
