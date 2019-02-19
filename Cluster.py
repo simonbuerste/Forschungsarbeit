@@ -17,6 +17,7 @@ from D_AE1 import ae_model_fn
 
 from kMeans import kmeans_model_fn
 from gmm import gmm_model_fn
+from IDEC import idec_model_fn
 
 # Set the random seed for the whole graph for reproducible experiments
 tf.set_random_seed(230)
@@ -94,6 +95,8 @@ if __name__ == '__main__':
         cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
     elif args.cluster_model == 'gmm':
         cluster_model_spec = gmm_model_fn(cluster_inputs, params)
+    elif args.cluster_model == 'IDEC':
+        cluster_model_spec = idec_model_fn(cluster_inputs, latent_model_spec, params)
 
     # Initialize tf.Saver
     saver = tf.train.Saver(vars_to_restore)

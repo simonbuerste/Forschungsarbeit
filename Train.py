@@ -8,6 +8,7 @@ from shutil import copyfile
 
 from input_fn import input_fn
 from training import train_and_evaluate
+from IDEC_Clustering import train_and_evaluate_idec
 from utils import Params
 
 from D_VAE1 import vae_model_fn
@@ -16,6 +17,7 @@ from D_AE1 import ae_model_fn
 
 from kMeans import kmeans_model_fn
 from gmm import gmm_model_fn
+from IDEC import idec_model_fn
 
 # Set the random seed for the whole graph for reproducible experiments
 tf.set_random_seed(230)
@@ -24,11 +26,13 @@ tf.set_random_seed(230)
 config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
-model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models')
-#model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
+# model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models')
+model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
 
-data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
-#data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
+# data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
+data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
+
+restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE_MNIST_kmeans_2019-02-18_09-20/best_weights'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default=model_dir,
@@ -41,7 +45,7 @@ parser.add_argument('--gpu', default=0,
                     help="Choose GPU on which the program should run")
 parser.add_argument('--latent_model', default='AE',
                     help="Choose Model which is used for creating a latent space")
-parser.add_argument('--cluster_model', default='kmeans',
+parser.add_argument('--cluster_model', default='IDEC',
                     help="Choose Model which is used for clustering")
 parser.add_argument('--dataset', default='MNIST',
                     help="Choose dataset which should be used")
@@ -95,8 +99,15 @@ if __name__ == '__main__':
     # Desired Cluster model is selected
     if args.cluster_model == 'kmeans':
         cluster_model_spec = kmeans_model_fn(cluster_inputs, params)
+        # Train the model
+        train_and_evaluate(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
     elif args.cluster_model == 'gmm':
         cluster_model_spec = gmm_model_fn(cluster_inputs, params)
-
-    # Train the model
-    train_and_evaluate(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
+        # Train the model
+        train_and_evaluate(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
+    elif args.cluster_model == 'IDEC':
+        # Input for Clustering is Output of Encoder
+        train_inputs["samples"] = cluster_model_spec['sample']
+        train_model_spec = idec_model_fn(train_inputs, train_model_spec, params)
+        cluster_model_spec = idec_model_fn(cluster_inputs, train_model_spec, params, reuse=True)
+        train_and_evaluate_idec(train_model_spec, cluster_model_spec, model_dir, params, config, restore_dir)  # add ", restore_dir" if a restore Dir
