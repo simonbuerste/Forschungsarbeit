@@ -14,6 +14,7 @@ from utils import Params
 from D_VAE1 import vae_model_fn
 from Beta_VAE import b_vae_model_fn
 from D_AE1 import ae_model_fn
+from D_Beta_AE1 import b_ae_model_fn
 
 from kMeans import kmeans_model_fn
 from gmm import gmm_model_fn
@@ -84,6 +85,9 @@ if __name__ == '__main__':
     if args.latent_model == 'AE':
         train_model_spec = ae_model_fn('train', train_inputs, params)
         cluster_model_spec = ae_model_fn('cluster', cluster_inputs, params, reuse=True)
+    elif args.latent_model == 'b_AE':
+        train_model_spec = b_ae_model_fn('train', train_inputs, params)
+        cluster_model_spec = b_ae_model_fn('cluster', cluster_inputs, params, reuse=True)
     elif args.latent_model == 'VAE':
         train_model_spec = vae_model_fn('train', train_inputs, params)
         cluster_model_spec = vae_model_fn('cluster', cluster_inputs, params, reuse=True)

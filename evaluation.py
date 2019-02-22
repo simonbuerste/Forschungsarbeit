@@ -43,8 +43,6 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
             sess.run(model_spec['train_op'])
         sess.run(model_spec['iterator_init_op'])
 
-    sess.run(model_spec['iterator_init_op'])
-    
     accuracy = 0
     nmi = 0
     ari = 0
