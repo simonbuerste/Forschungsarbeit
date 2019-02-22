@@ -46,9 +46,11 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss])
 
-    # If we have a model with cluster centers in training, update them
+    # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
-        sess.run(model_spec['cluster_center_update'])
+        sess.run(model_spec['iterator_init_op'])
+        for i in range(num_steps):
+            sess.run(model_spec['cluster_center_update'])
 
     metrics_values = {k: v[0] for k, v in metrics.items()}
     metrics_val = sess.run(metrics_values)
@@ -82,6 +84,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         if 'cluster_center_init' in train_model_spec:
             sess.run(train_model_spec['iterator_init_op'])
             sess.run(train_model_spec['cluster_center_init'])
+            sess.run(eval_model_spec['iterator_init_op'])
+            sess.run(eval_model_spec['cluster_center_init'])
 
         # Reload weights from directory if specified
         if restore_from is not None:

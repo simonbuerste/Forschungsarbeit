@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.factorization import KMeans
 
+
 # Define a Leacky ReLu Function
 def lrelu(x, alpha=0.2):
     return tf.maximum(x, tf.multiply(x, alpha))
@@ -74,7 +75,6 @@ def build_model(inputs, is_training, params):
     reconstructed_mean = decoder(sampled, is_training, params)
 
     loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
-
     kmeans = KMeans(inputs=sampled, num_clusters=params.k, initial_clusters='random')
     (all_scores, cluster_idx, scores, cluster_centers_initialized,
      init_op, train_op) = kmeans.training_graph()
@@ -107,9 +107,11 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
         loss_likelihood, sampled, reconstructed_mean, cluster_center_dist, kmeans_init_op, kmeans_train_op = \
             build_model(inputs, is_training, params)
 
-    sum_cluster_dist = tf.reduce_sum(tf.reduce_min(cluster_center_dist, axis=1))
+    # Sum over all squared euclidean distances from sample to closest cluster center
+    # set the input of this operation (the clusters) as not trainable for the optimizer by stopping gradient here
+    sum_cluster_dist = tf.stop_gradient(tf.reduce_mean(tf.reduce_min(cluster_center_dist, axis=1)))
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood-params.lambd*sum_cluster_dist)
+    loss = tf.reduce_mean(loss_likelihood+params.lambd*sum_cluster_dist)
 
     # Define training step that minimizes the loss with the Adam optimizer
     if mode == 'train':
@@ -157,10 +159,10 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['update_metrics'] = update_metrics_op
     model_spec['summary_op'] = tf.summary.merge_all()
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
+    model_spec['cluster_center_init'] = kmeans_init_op
 
     if mode == 'train':
         model_spec['train_op'] = train_op
-        model_spec['cluster_center_init'] = kmeans_init_op
         model_spec['cluster_center_update'] = kmeans_train_op
     elif mode == 'cluster':
         model_spec['sample'] = sampled
