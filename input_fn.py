@@ -78,8 +78,8 @@ def input_fn(data_dir, mode, params):
         params.channels = 3
         if "CIFAR-100" in filename:
             params.num_classes = 20
-        elif "IMAGENET" in filename:
-            params.num_classes = 1000
+        elif "IMAGENET-10" in filename:
+            params.num_classes = 10
         else:  # CIFAR-10 case
             params.num_classes = 10
 
