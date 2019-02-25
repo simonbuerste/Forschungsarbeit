@@ -46,7 +46,7 @@ parser.add_argument('--gpu', default=0,
                     help="Choose GPU on which the program should run")
 parser.add_argument('--latent_model', default='b_AE',
                     help="Choose Model which is used for creating a latent space")
-parser.add_argument('--cluster_model', default='kmeans',
+parser.add_argument('--cluster_model', default='IDEC',
                     help="Choose Model which is used for clustering")
 parser.add_argument('--dataset', default='MNIST',
                     help="Choose dataset which should be used")
@@ -112,8 +112,8 @@ if __name__ == '__main__':
     elif args.cluster_model == 'IDEC':
         # Input for Clustering is Output of Encoder
         train_inputs["samples"] = cluster_model_spec['sample']
-        train_model_spec = idec_model_fn(train_inputs, train_model_spec, params)
-        cluster_model_spec = idec_model_fn(cluster_inputs, train_model_spec, params, reuse=True)
-        train_and_evaluate_idec(train_model_spec, cluster_model_spec, model_dir, params, config, restore_dir)  # add ", restore_dir" if a restore Dir
+        #train_model_spec = idec_model_fn(train_inputs, train_model_spec, params)
+        cluster_model_spec = idec_model_fn(cluster_inputs, train_model_spec, params, reuse=tf.AUTO_REUSE)
+        train_and_evaluate_idec(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
     else:
         print("Unknown Model selected")

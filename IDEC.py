@@ -3,7 +3,7 @@ from tensorflow.contrib.factorization import KMeansClustering
 
 
 def student_t_distr(imgs, cluster_centers):
-    q = 1.0 / (1.0 + (tf.reduce_sum(tf.square(tf.expand_dims(imgs, axis=1) - cluster_centers), 0)))
+    q = 1.0 / (1.0 + (tf.reduce_sum(tf.square(tf.expand_dims(imgs, axis=1) - cluster_centers), axis=2)))
     q = tf.transpose(tf.transpose(q) / tf.reduce_sum(q, 1))
     return q
 
@@ -14,17 +14,13 @@ def target_distr(q):
     return p
 
 
-def input_fn(inputs):
-    return inputs["samples"]
-
-
 def build_idec_model(inputs, params):
     imgs = inputs["samples"]
 
     # Initialization of centers by running kmeans
     # kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=False)
     # kmeans_model.train(input_fn(inputs), steps=20)
-    cluster_centers = tf.random.truncated_normal(shape=tf.shape(imgs))  # kmeans_model.cluster_centers()
+    cluster_centers = tf.get_variable(name='cluster_centers', initializer=tf.random.truncated_normal(shape=(params.k, params.n_latent))) # kmeans_model.cluster_centers()
 
     q = student_t_distr(imgs, cluster_centers)
     p = target_distr(q)
@@ -42,7 +38,7 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
         # K-Means Parameters
         kl_loss, q, train_op_distr = build_idec_model(inputs, params)
 
-    cluster_idx = q.argmax(1)
+    cluster_idx = tf.argmax(q, axis=1)
 
     loss = latent_model_spec["loss"] + params.gamma*kl_loss
 
