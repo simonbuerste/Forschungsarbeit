@@ -75,11 +75,16 @@ def build_model(inputs, is_training, params):
     reconstructed_mean = decoder(sampled, is_training, params)
 
     loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
-    kmeans = KMeans(inputs=sampled, num_clusters=params.k, initial_clusters='random')
-    (all_scores, cluster_idx, scores, cluster_centers_initialized,
-     init_op, train_op) = kmeans.training_graph()
+    with tf.variable_scope('kmeans'):
+        kmeans = KMeans(inputs=sampled, num_clusters=params.k, distance_metric='cosine', use_mini_batch=False,
+                          mini_batch_steps_per_iteration=1, initial_clusters='kmeans_plus_plus')
+        (all_scores, cluster_idx, scores, cluster_centers_initialized,
+        init_op, train_op) = kmeans.training_graph()
 
-    return loss_square, sampled, reconstructed_mean, all_scores[0], init_op, train_op
+    collection = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='kmeans')
+    reset_op = tf.initialize_variables(collection)
+
+    return loss_square, sampled, reconstructed_mean, all_scores[0], init_op, train_op, reset_op
 
 
 def b_ae_model_fn(mode, inputs, params, reuse=False):
@@ -104,7 +109,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('b_ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, sampled, reconstructed_mean, cluster_center_dist, kmeans_init_op, kmeans_train_op = \
+        loss_likelihood, sampled, reconstructed_mean, cluster_center_dist, kmeans_init_op, kmeans_train_op, cluster_reset_op = \
             build_model(inputs, is_training, params)
 
     # Sum over all squared euclidean distances from sample to closest cluster center
@@ -164,6 +169,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     if mode == 'train':
         model_spec['train_op'] = train_op
         model_spec['cluster_center_update'] = kmeans_train_op
+        model_spec['cluster_center_reset'] = cluster_reset_op
     elif mode == 'cluster':
         model_spec['sample'] = sampled
 

@@ -48,6 +48,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
+        #sess.run(model_spec['cluster_center_reset'])
         sess.run(model_spec['iterator_init_op'])
         for i in range(num_steps):
             sess.run(model_spec['cluster_center_update'])
@@ -120,7 +121,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             # Do evaulation session just at defined steps or last epoch and after appropriate pretraining
             if epoch % params.eval_visu_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
                 # Evaluate for one epoch on validation set
-                num_steps = (params.eval_visu_step + params.eval_batch_size - 1) // params.eval_batch_size
+                num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
                 metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
                                                                              eval_writer, params)
                 print("Cluster_acc after Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
