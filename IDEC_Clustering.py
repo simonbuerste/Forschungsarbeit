@@ -56,7 +56,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     return metrics_val
 
 
-def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params, config, restore_from=None):
+def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params, config, restore_from=None, vars_to_restore=None):
     """Train the model and evaluate every epoch.
        Args:
            train_model_spec: (dict) contains the graph operations or nodes needed for training
@@ -68,7 +68,7 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
            restore_from: (string) directory or file containing weights to restore the graph
        """
     # Initialize tf.Saver instances to save weights during training
-    last_saver = tf.train.Saver()  # will keep last 5 epochs
+    last_saver = tf.train.Saver(vars_to_restore)  # will keep last 5 epochs
     best_saver = tf.train.Saver(max_to_keep=1)  # only keep 1 best checkpoint (best on eval)
     begin_at_epoch = 0
 
@@ -107,16 +107,17 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
 
         for epoch in range(begin_at_epoch, (begin_at_epoch + params.num_epochs)*num_steps):
             # Run one epoch
-            if epoch % params.evaluation_step == 0:
+            if epoch*num_steps % params.eval_visu_step == 0:
                 num_steps_eval = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
                 accuracy = 0
                 nmi = 0
                 ari = 0
+                sess.run(eval_model_spec['metrics_init_op'])
+                sess.run(eval_model_spec['iterator_init_op'])
                 for i in range(num_steps_eval):
-                    sess.run(eval_model_spec['iterator_init_op'])
                     _, y_pred, labels = sess.run([eval_model_spec['train_op_distribution'],
-                                                  eval_model_spec['clusted_idx'], sess.run['labels']])
+                                                     eval_model_spec['cluster_idx'], eval_model_spec['labels']])
 
                     counts = np.zeros(shape=(params.k, params.num_classes))
                     for j in range(len(y_pred)):
@@ -126,13 +127,17 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                     accuracy += sess.run(cluster_accuracy(labels, y_pred))
                     nmi += sess.run(normalized_mutual_information(counts))
                     ari += sess.run(adjuster_rand_index(counts))
-                metrics_eval = sess.run(eval_model_spec['metrics'])
+
+                # Get the values of the metrics
+                metrics_values = {k: v[0] for k, v in eval_model_spec['metrics'].items()}
+                metrics_eval = sess.run(metrics_values)
 
                 metrics_eval['Accuracy'] = accuracy / num_steps_eval
                 metrics_eval['Normalized Mutual Information'] = nmi / num_steps_eval
                 metrics_eval['Adjusted Rand Index'] = ari / num_steps_eval
+                print("Cluster_acc at Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
 
-            # Load the training dataset into the pipeline and initialize the metrics local variables
+            # Load the training dataset into the pipeline and initialize the metrics local variables after every epoch
             if epoch % num_steps == 0:
                 sess.run(train_model_spec['iterator_init_op'])
                 sess.run(train_model_spec['metrics_init_op'])

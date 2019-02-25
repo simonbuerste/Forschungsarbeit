@@ -33,6 +33,7 @@ model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models'
 data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
 # data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
 
+restore_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models', 'AE_MNIST_kmeans_2019-02-26_15-48', 'best_weights')
 #restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE_MNIST_kmeans_2019-02-18_09-20/best_weights'
 
 parser = argparse.ArgumentParser()
@@ -44,7 +45,7 @@ parser.add_argument('--restore_from', default='best_weights',
                     help="Subdirectory of model dir or file containing the weights")
 parser.add_argument('--gpu', default=0,
                     help="Choose GPU on which the program should run")
-parser.add_argument('--latent_model', default='b_AE',
+parser.add_argument('--latent_model', default='AE',
                     help="Choose Model which is used for creating a latent space")
 parser.add_argument('--cluster_model', default='IDEC',
                     help="Choose Model which is used for clustering")
@@ -97,6 +98,8 @@ if __name__ == '__main__':
     else:
         print("Unknown Model selected")
 
+    vars_to_restore = tf.contrib.framework.get_variables_to_restore()
+
     # Input for Clustering is Output of Encoder
     cluster_inputs["samples"] = cluster_model_spec['sample']
 
@@ -114,6 +117,6 @@ if __name__ == '__main__':
         train_inputs["samples"] = cluster_model_spec['sample']
         #train_model_spec = idec_model_fn(train_inputs, train_model_spec, params)
         cluster_model_spec = idec_model_fn(cluster_inputs, train_model_spec, params, reuse=tf.AUTO_REUSE)
-        train_and_evaluate_idec(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
+        train_and_evaluate_idec(train_model_spec, cluster_model_spec, model_dir, params, config, restore_dir, vars_to_restore)  # add ", restore_dir" if a restore Dir
     else:
         print("Unknown Model selected")

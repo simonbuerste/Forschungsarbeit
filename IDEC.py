@@ -20,7 +20,7 @@ def build_idec_model(inputs, params):
     # Initialization of centers by running kmeans
     # kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=False)
     # kmeans_model.train(input_fn(inputs), steps=20)
-    cluster_centers = tf.get_variable(name='cluster_centers', initializer=tf.random.truncated_normal(shape=(params.k, params.n_latent))) # kmeans_model.cluster_centers()
+    cluster_centers = tf.get_variable(name='cluster_centers', initializer=tf.truncated_normal(shape=(params.k, params.n_latent))) # kmeans_model.cluster_centers()
 
     q = student_t_distr(imgs, cluster_centers)
     p = target_distr(q)
@@ -38,14 +38,14 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
         # K-Means Parameters
         kl_loss, q, train_op_distr = build_idec_model(inputs, params)
 
-    cluster_idx = tf.argmax(q, axis=1)
+        cluster_idx = tf.argmax(q, axis=1)
 
-    loss = latent_model_spec["loss"] + params.gamma*kl_loss
+        loss = latent_model_spec["loss"] + params.gamma*kl_loss
 
-    optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
-    global_step = tf.train.get_or_create_global_step()
-    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-        train_op = optimizer.minimize(loss, global_step=global_step)
+        optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
+        global_step = tf.train.get_or_create_global_step()
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            train_op = optimizer.minimize(loss, global_step=global_step)
 
     # -----------------------------------------------------------
     # METRICS AND SUMMARIES
