@@ -48,7 +48,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
-        #sess.run(model_spec['cluster_center_reset'])
+        sess.run(model_spec['cluster_center_reset'])
         sess.run(model_spec['iterator_init_op'])
         for i in range(num_steps):
             sess.run(model_spec['cluster_center_update'])

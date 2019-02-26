@@ -57,9 +57,11 @@ def decoder(sampled_z, is_training, params):
     #x = tf.layers.dense(x, units=params.channels*params.resize_height*params.resize_width,
     #                                     activation=lrelu, kernel_initializer=tf.contrib.layers.xavier_initializer())
     # reconstructed_mean = tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
-
+    
     reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer())
+    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
+    #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
 
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')

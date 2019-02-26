@@ -56,8 +56,11 @@ def decoder(sampled_z, is_training, params):
         x = tf.nn.leaky_relu(x, alpha=0.2)
         print(x.get_shape())
 
-    reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
-                                          kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
+    #reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
+    #                                      kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
+    
+    reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
+                        kernel_initializer=tf.contrib.layers.xavier_initializer()) 
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
     return reconstructed_mean

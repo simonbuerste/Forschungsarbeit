@@ -53,7 +53,7 @@ def build_idec_model(inputs, params):
     p = target_distr(q)
 
     kl_loss = tf.multiply(p, tf.log(q / p))
-    kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
+    kl_loss = tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
 
     return kl_loss, q, p
 
