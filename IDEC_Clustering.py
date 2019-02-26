@@ -73,6 +73,8 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
     begin_at_epoch = 0
 
     with tf.Session(config=config) as sess:
+        # Initialize iterator because cluster center initialization need samples
+        sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
         # Initialize model variables
         sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']])
 
@@ -105,9 +107,9 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
         summary_op = train_model_spec['summary_op']
         global_step = tf.train.get_global_step()
 
-        for epoch in range(begin_at_epoch, (begin_at_epoch + params.num_epochs)*num_steps):
+        for epoch in range(begin_at_epoch, (begin_at_epoch + params.num_epochs)):
             # Run one epoch
-            if epoch*num_steps % params.eval_visu_step == 0:
+            if epoch % params.eval_visu_step == 0:
                 num_steps_eval = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
                 accuracy = 0
@@ -135,25 +137,26 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                 metrics_eval['Accuracy'] = accuracy / num_steps_eval
                 metrics_eval['Normalized Mutual Information'] = nmi / num_steps_eval
                 metrics_eval['Adjusted Rand Index'] = ari / num_steps_eval
-                print("Cluster_acc at Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
+                print("Cluster_acc at Epoch ", epoch, ": %.2f" % metrics_eval['Accuracy'])
 
             # Load the training dataset into the pipeline and initialize the metrics local variables after every epoch
-            if epoch % num_steps == 0:
-                sess.run(train_model_spec['iterator_init_op'])
-                sess.run(train_model_spec['metrics_init_op'])
 
-            # Evaluate summaries for tensorboard only once in a while
-            if epoch % params.save_summary_steps == 0:
-                # Perform a mini-batch update
-                _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
-                                                                  summary_op, global_step])
-                # Write summaries for tensorboard
-                writer.add_summary(summ, global_step_val)
+            sess.run(train_model_spec['iterator_init_op'])
+            sess.run(train_model_spec['metrics_init_op'])
+            for i in range(num_steps):
+                # Evaluate summaries for tensorboard only once in a while
+                if i % params.save_summary_steps == 0:
+                    # Perform a mini-batch update
+                    _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
+                                                                      summary_op, global_step])
+                    # Write summaries for tensorboard
+                    writer.add_summary(summ, global_step_val)
 
-                # Output Training Loss after each summary step
-                print("Training_loss after Step ", global_step_val, ":", loss_val)
-            else:
-                _, _, loss_val = sess.run([train_op, update_metrics, loss])
+                    # Output Training Loss after each summary step
+                    print("Training_loss after Step ", global_step_val, ":", loss_val)
+                    # print("Step", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/(params.num_epochs*num_steps)), "% done")
+                else:
+                    _, _, loss_val = sess.run([train_op, update_metrics, loss])
 
             metrics_values = {k: v[0] for k, v in metrics.items()}
             metrics_val = sess.run(metrics_values)
@@ -171,5 +174,3 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
 
             save_dict_to_json(metrics_eval, last_json_path)
-
-            print("Epoch", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/params.num_epochs), "% done")

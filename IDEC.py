@@ -14,13 +14,40 @@ def target_distr(q):
     return p
 
 
+def init_centroids(imgs, params):
+    # 1st Step: Initialize centroids randomly by samples
+    n_samples = tf.shape(imgs)[0]
+    random_indices = tf.random_shuffle(tf.range(0, n_samples))
+    begin = [0, ]
+    size = [params.k, ]
+    size[0] = params.k
+    centroid_indices = tf.slice(random_indices, begin, size)
+    centroids = tf.gather(imgs, centroid_indices)
+
+    # Do assigning and cluster updating for one run of training samples
+
+    # 2nd Step: Assign samples to centroids
+    expanded_vectors = tf.expand_dims(imgs, 0)
+    expanded_centroids = tf.expand_dims(centroids, 1)
+    distances = tf.reduce_sum(tf.square(tf.subtract(expanded_vectors, expanded_centroids)), 2)
+    nearest_indices = tf.argmin(distances, 0)
+
+    # 3rd Step: Update Cluster centers
+    nearest_indices = tf.to_int32(nearest_indices)
+    partitions = tf.dynamic_partition(imgs, nearest_indices, params.k)
+    centroids = tf.concat([tf.expand_dims(tf.reduce_mean(partition, 0), 0) for partition in partitions], 0)
+
+    return centroids
+
+
 def build_idec_model(inputs, params):
     imgs = inputs["samples"]
 
     # Initialization of centers by running kmeans
     # kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=False)
-    # kmeans_model.train(input_fn(inputs), steps=20)
-    cluster_centers = tf.get_variable(name='cluster_centers', initializer=tf.truncated_normal(shape=(params.k, params.n_latent))) # kmeans_model.cluster_centers()
+    # kmeans_model.train(input_fn(imgs), steps=20)
+    # kmeans_model.cluster_centers()
+    cluster_centers = tf.get_variable(name='cluster_centers', initializer=init_centroids(imgs, params))
 
     q = student_t_distr(imgs, cluster_centers)
     p = target_distr(q)
