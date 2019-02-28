@@ -6,21 +6,63 @@ def lrelu(x, alpha=0.2):
     return tf.maximum(x, tf.multiply(x, alpha))
 
 
+def selfattentionlayer(x, iteration, sigma):
+
+    batch_size, h, w, num_channels = x.get_shape().as_list()
+    location_num = h*w
+    downsampled_num = location_num//4
+
+    reduced_channel = num_channels//8
+
+    k_h = 1
+    k_w = 1
+    d_h = 1
+    d_w = 1
+
+    w_f = tf.get_variable(name='w_f_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
+    w_g = tf.get_variable(name='w_g_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
+    w_h = tf.get_variable(name='w_h_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], num_channels])
+    w_attn = tf.get_variable(name='w_attn_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], num_channels])
+
+    theta = tf.nn.conv2d(x, w_f, strides=[1, d_h, d_w, 1], padding='SAME')
+    phi = tf.nn.conv2d(x, w_g, strides=[1, d_h, d_w, 1], padding='SAME')
+    g = tf.nn.conv2d(x, w_h, strides=[1, d_h, d_w, 1], padding='SAME')
+
+    phi = tf.layers.max_pooling2d(inputs=phi, pool_size=[2, 2], strides=2)
+    g = tf.layers.max_pooling2d(inputs=g, pool_size=[2, 2], strides=2)
+
+    theta = tf.reshape(theta, [-1, location_num, reduced_channel])
+    phi = tf.reshape(phi, [-1, downsampled_num, reduced_channel])
+    g = tf.reshape(g, [-1, downsampled_num, num_channels])
+
+    attn = tf.matmul(theta, phi, transpose_b=True)
+    attn = tf.nn.softmax(attn)
+
+    attn_g = tf.matmul(attn, g)
+    attn_g = tf.reshape(attn_g, [-1, h, w, num_channels])
+
+    # sigma = tf.get_variable('sigma_ratio_%d' % iteration, [], initializer=tf.constant_initializer(1.0))
+    output = tf.nn.conv2d(attn_g, w_attn, strides=[1, d_h, d_w, 1], padding='SAME')
+    return x + sigma*output
+
+
 # Defining the Encoder
 def encoder(encoder_input, is_training, params):
     x = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print('-------Encoder-------')
+    sigma = tf.placeholder(tf.float32, [], name="sigma_ratio")
     for k in range(4):
         print(x.get_shape())
         x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=3, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
-        x = tf.nn.leaky_relu(x,alpha=0.2)
-
+        x = tf.nn.leaky_relu(x, alpha=0.2)
         if k < 3:
             x = tf.layers.max_pooling2d(x, 2, 2)
+        #if k == 3:
+        x = selfattentionlayer(x, k, sigma)
 
-        # Last layer average pooling
+    # Last layer average pooling
     x = tf.layers.average_pooling2d(x, 4, 4)
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
@@ -54,13 +96,15 @@ def decoder(sampled_z, is_training, params):
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
+        #if k == 1:
+        #    x = selfattentionlayer(x, k)
         print(x.get_shape())
 
-    #reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
-    #                                      kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
+    reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
+                                          kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
     
-    reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
-                                          kernel_initializer=tf.contrib.layers.xavier_initializer())
+    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
+    #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
     
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
@@ -71,7 +115,7 @@ def build_model(inputs, is_training, params):
 
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled, z_mu, z_log_sigma_sq, q_z = encoder(original_img, is_training, params)
+    sampled, z_mu, z_log_sigma_sq, q_z, sigma_placeholder = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
 
     # Calculate log likelihood
@@ -79,7 +123,9 @@ def build_model(inputs, is_training, params):
     #loss_likelihood = -tf.reduce_mean(tf.reduce_sum(loss_likelihood,[1,2,3]),0)
 
     # Another way for the loss
-    help_p = tf.distributions.Bernoulli(logits=reconstructed_mean)
+    #help_p = tf.distributions.Bernoulli(logits=reconstructed_mean)
+    temperature = tf.constant(1.0)
+    help_p = tf.distributions.RelaxedOneHotCategorical(temperature, logits=reconstructed_mean)
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     # Calculate KL loss
@@ -87,7 +133,7 @@ def build_model(inputs, is_training, params):
     kl_loss = q_z.kl_divergence(p_z)
     kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
-    return loss_likelihood, kl_loss, sampled, reconstructed_mean
+    return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
 
 
 def vae_model_fn(mode, inputs, params, reuse=False):
@@ -111,14 +157,15 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, kl_loss, sampled, reconstructed_mean = build_model(inputs, is_training, params)
+        loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training, params)
 
     # Define the Loss
     loss = tf.reduce_mean(loss_likelihood + kl_loss)
 
     # Define training step that minimizes the loss with the Adam optimizer
+    learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
     if mode == 'train':
-        optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         global_step = tf.train.get_or_create_global_step()
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=global_step)
@@ -162,6 +209,8 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['update_metrics'] = update_metrics_op
     model_spec['summary_op'] = tf.summary.merge_all()
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
+    model_spec['sigma_placeholder'] = sigma_placeholder
+    model_spec['learning_rate_placeholder'] = learning_rate_ph
 
     if mode == 'train':
         model_spec['train_op'] = train_op
