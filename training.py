@@ -37,18 +37,22 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         if i % params.save_summary_steps == 0:
             # Perform a mini-batch update
             _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
-                                                              summary_op, global_step])
+                                                              summary_op, global_step],
+                                                             feed_dict={model_spec['sigma_placeholder']: params.sigma,
+                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate})
             # Write summaries for tensorboard
             writer.add_summary(summ, global_step_val)
 
             # Output Training Loss after each summary step
             print("Training_loss after Step ", global_step_val, ":", loss_val)
         else:
-            _, _, loss_val = sess.run([train_op, update_metrics, loss])
+            _, _, loss_val = sess.run([train_op, update_metrics, loss],
+                                      feed_dict={model_spec['sigma_placeholder']: params.sigma,
+                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate})
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
-        #sess.run(model_spec['cluster_center_reset'])
+        sess.run(model_spec['cluster_center_reset'])
         sess.run(model_spec['iterator_init_op'])
         for i in range(num_steps):
             sess.run(model_spec['cluster_center_update'])
@@ -109,6 +113,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
+            if epoch > 5:
+                params.sigma = 0.0  # np.minimum(1.0, np.multiply(0.2, (epoch-5.0)))
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
             num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size

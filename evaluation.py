@@ -32,7 +32,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     # Initialize the cluster centers for each epoch (Cluster Variables have to be initialized ("reset") again therefore)
     sess.run(model_spec['reset_op'])
     while not sess.run(model_spec['cluster_center_initialized']):
-        sess.run(model_spec['init_op'])
+        sess.run(model_spec['init_op'], feed_dict={model_spec['sigma_placeholder']: params.sigma})
 
     sess.run(model_spec['metrics_init_op'])
     sess.run(model_spec['iterator_init_op'])  # 2nd initialization necessary in Case of batch_size = size_of_data
@@ -40,7 +40,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     # train the clustering algorithm
     for _ in range(params.cluster_training_epochs):
         for _ in range(num_steps):
-            sess.run(model_spec['train_op'])
+            sess.run(model_spec['train_op'], feed_dict={model_spec['sigma_placeholder']: params.sigma})
         sess.run(model_spec['iterator_init_op'])
 
     accuracy = 0
@@ -51,7 +51,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     for i in range(num_steps):
         _, idx, labels, img = sess.run(
             [update_metrics, model_spec['cluster_idx'], model_spec["labels"],
-             model_spec["sample"]])
+             model_spec["sample"]], feed_dict={model_spec['sigma_placeholder']: params.sigma})
 
         # Input set for TensorBoard visualization
         if params.visualize == 1:
