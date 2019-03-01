@@ -3,8 +3,12 @@ from tensorflow.contrib.factorization import KMeansClustering
 
 
 def student_t_distr(imgs, cluster_centers):
-    q = 1.0 / (1.0 + (tf.reduce_sum(tf.square(tf.expand_dims(imgs, axis=1) - cluster_centers), axis=2)))
-    q = tf.transpose(tf.transpose(q) / tf.reduce_sum(q, 1))
+    #q = 1.0 / (1.0 + (tf.reduce_sum(tf.square(tf.expand_dims(imgs, axis=1) - cluster_centers), axis=2)))
+    #q = tf.transpose(tf.transpose(q) / tf.reduce_sum(q, 1))
+    df = tf.constant(1.0)
+    scale = tf.constant(1.0)
+    distr = tf.distributions.StudentT(df=df, loc=cluster_centers, scale=scale)
+    q = distr.prob(imgs)
     return q
 
 
