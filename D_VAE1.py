@@ -6,6 +6,24 @@ def lrelu(x, alpha=0.2):
     return tf.maximum(x, tf.multiply(x, alpha))
 
 
+def sample_gumbel(shape, eps=1e-20):
+    u = tf.random_uniform(shape, minval=0, maxval=1)
+    return -tf.log(-tf.log(u + eps) + eps)
+
+
+def gumbel_softmax(logits, temperature, hard=False):
+    gumbel_softmax_sample = logits + sample_gumbel(tf.shape(logits))
+    y = tf.nn.softmax(gumbel_softmax_sample / temperature)
+
+    if hard:
+        k = tf.shape(logits)[-1]
+        y_hard = tf.cast(tf.equal(y, tf.reduce_max(y, 1, keep_dims=True)),
+                         y.dtype)
+        y = tf.stop_gradient(y_hard - y) + y
+
+    return y
+
+
 def selfattentionlayer(x, iteration, sigma):
 
     batch_size, h, w, num_channels = x.get_shape().as_list()
@@ -72,8 +90,12 @@ def encoder(encoder_input, is_training, params):
     z_log_sigma_sq = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
     print(z_mu.get_shape())
 
-    q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-    z = q_z.sample()
+    # q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+    # z = q_z.sample()
+
+    temperature = tf.constant(1.0)
+    q_z = gumbel_softmax(x, temperature)
+    z = q_z
     print('-------Encoder-------')
 
     return z, z_mu, z_log_sigma_sq, q_z
@@ -123,15 +145,18 @@ def build_model(inputs, is_training, params):
     #loss_likelihood = -tf.reduce_mean(tf.reduce_sum(loss_likelihood,[1,2,3]),0)
 
     # Another way for the loss
-    #help_p = tf.distributions.Bernoulli(logits=reconstructed_mean)
-    temperature = tf.constant(1.0)
-    help_p = tf.distributions.RelaxedOneHotCategorical(temperature, logits=reconstructed_mean)
+    help_p = tf.distributions.Bernoulli(logits=reconstructed_mean)
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     # Calculate KL loss
     p_z = tf.distributions.Normal(tf.zeros_like(sampled), tf.ones_like(sampled))
-    kl_loss = q_z.kl_divergence(p_z)
-    kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
+
+    #kl_loss = q_z.kl_divergence(p_z)
+    #kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
+
+    p = p_z.sample()
+    kl_loss = tf.multiply(p, tf.log(q_z / p))
+    kl_loss = tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
 
     return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
 
