@@ -76,7 +76,9 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
         # Initialize iterator because cluster center initialization need samples
         sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
         # Initialize model variables
-        sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']])
+        sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']],
+                 feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                            eval_model_spec['sigma_placeholder']: params.sigma})
 
         # Reload weights from directory if specified
         if restore_from is not None:
@@ -117,9 +119,19 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                 ari = 0
                 sess.run(eval_model_spec['metrics_init_op'])
                 sess.run(eval_model_spec['iterator_init_op'])
+
+                # First Train the distribution
                 for i in range(num_steps_eval):
-                    _, y_pred, labels = sess.run([eval_model_spec['train_op_distribution'],
-                                                     eval_model_spec['cluster_idx'], eval_model_spec['labels']])
+                    _, = sess.run([eval_model_spec['train_op_distribution']],
+                                  feed_dict={eval_model_spec['sigma_placeholder']: params.sigma,
+                                             eval_model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                # Then assign the cluster_idx to each sample
+                sess.run(eval_model_spec['iterator_init_op'])
+                for i in range(num_steps_eval):
+                    y_pred, labels = sess.run([eval_model_spec['cluster_idx'], eval_model_spec['labels']],
+                                              feed_dict={eval_model_spec['sigma_placeholder']: params.sigma,
+                                                         eval_model_spec[
+                                                             'learning_rate_placeholder']: params.initial_training_rate})
 
                     counts = np.zeros(shape=(params.k, params.num_classes))
                     for j in range(len(y_pred)):
@@ -148,7 +160,10 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                 if i % params.save_summary_steps == 0:
                     # Perform a mini-batch update
                     _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
-                                                                      summary_op, global_step])
+                                                                      summary_op, global_step],
+                                                                     feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                                                                                eval_model_spec['sigma_placeholder']: params.sigma,
+                                                                                train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
                     # Write summaries for tensorboard
                     writer.add_summary(summ, global_step_val)
 
@@ -156,7 +171,9 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                     print("Training_loss after Step ", global_step_val, ":", loss_val)
                     # print("Step", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/(params.num_epochs*num_steps)), "% done")
                 else:
-                    _, _, loss_val = sess.run([train_op, update_metrics, loss])
+                    _, _, loss_val = sess.run([train_op, update_metrics, loss],
+                                              feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                                                         train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
 
             metrics_values = {k: v[0] for k, v in metrics.items()}
             metrics_val = sess.run(metrics_values)

@@ -7,8 +7,12 @@ def student_t_distr(imgs, cluster_centers):
     #q = tf.transpose(tf.transpose(q) / tf.reduce_sum(q, 1))
     df = tf.constant(1.0)
     scale = tf.constant(1.0)
-    distr = tf.distributions.StudentT(df=df, loc=cluster_centers, scale=scale)
-    q = distr.prob(imgs)
+
+    y = tf.reduce_sum(tf.squared_difference(tf.expand_dims(imgs, axis=1), cluster_centers), axis=2)
+    q = (1 + y / df*scale**2)**(-0.5*(df+1))
+
+    #distr = tf.distributions.StudentT(df=df, loc=tf.expand_dims(cluster_centers, axis=0), scale=scale)
+    #q = distr.prob(imgs)
     return q
 
 
