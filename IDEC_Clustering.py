@@ -7,10 +7,19 @@ import numpy as np
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import Params
+from tensorflow.contrib.factorization import KMeansClustering
 
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
 from metrics import adjuster_rand_index
+
+
+def target_distr(q):
+    weight = q**2 / tf.reduce_sum(q, 0)
+    p = tf.transpose(tf.transpose(weight) / tf.reduce_sum(weight, 1))
+    tmp1 = weight.eval()
+    tmp2 = p.eval
+    return p
 
 
 def train_sess(sess, model_spec, num_steps, writer, params):
@@ -56,7 +65,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     return metrics_val
 
 
-def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params, config, restore_from=None, vars_to_restore=None):
+def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore_from=None, vars_to_restore=None):
     """Train the model and evaluate every epoch.
        Args:
            train_model_spec: (dict) contains the graph operations or nodes needed for training
@@ -74,11 +83,9 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
 
     with tf.Session(config=config) as sess:
         # Initialize iterator because cluster center initialization need samples
-        sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
+        #sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
         # Initialize model variables
-        sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']],
-                 feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                            eval_model_spec['sigma_placeholder']: params.sigma})
+        sess.run(train_model_spec['variable_init_op'], feed_dict={train_model_spec['sigma_placeholder']: params.sigma})
 
         # Reload weights from directory if specified
         if restore_from is not None:
@@ -101,6 +108,15 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
         # Compute number of batches in one epoch (one full pass over the training set)
         num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
 
+        # Initialization of centers by running kmeans
+        cluster_centers = train_model_spec['cluster_centers']
+        kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=False)
+        for i in range(20):
+            sess.run(train_model_spec['iterator_init_op'])
+            kmeans_model.train(lambda: sess.run(train_model_spec['samples'], feed_dict={train_model_spec['sigma_placeholder']:
+                                                                                params.sigma}), steps=num_steps)
+        sess.run(cluster_centers.assign(kmeans_model.cluster_centers()))
+
         # Get relevant graph operations or nodes needed for training
         loss = train_model_spec['loss']
         train_op = train_model_spec['train_op']
@@ -112,58 +128,71 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
         for epoch in range(begin_at_epoch, (begin_at_epoch + params.num_epochs)):
             # Run one epoch
             if epoch % params.eval_visu_step == 0:
-                num_steps_eval = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
-                accuracy = 0
-                nmi = 0
-                ari = 0
-                sess.run(eval_model_spec['metrics_init_op'])
-                sess.run(eval_model_spec['iterator_init_op'])
+                sess.run(train_model_spec['metrics_init_op'])
+                sess.run(train_model_spec['iterator_init_op'])
 
                 # First Train the distribution
-                for i in range(num_steps_eval):
-                    _, = sess.run([eval_model_spec['train_op_distribution']],
-                                  feed_dict={eval_model_spec['sigma_placeholder']: params.sigma,
-                                             eval_model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                #tmp1 = train_model_spec['target_prob'].eval()
+                target_distribution = {}
+                for i in range(num_steps):
+                    p_batch, prob = sess.run([train_model_spec['train_op_distribution'], train_model_spec['prob']],
+                             feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                                        train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                    p = target_distr(prob)
+                    target_distribution[i] = p_batch
+                sess.run(train_model_spec['iterator_init_op'])
+
+                #tmp2 = train_model_spec['target_prob'].eval()
                 # Then assign the cluster_idx to each sample
-                sess.run(eval_model_spec['iterator_init_op'])
-                for i in range(num_steps_eval):
-                    y_pred, labels = sess.run([eval_model_spec['cluster_idx'], eval_model_spec['labels']],
-                                              feed_dict={eval_model_spec['sigma_placeholder']: params.sigma,
-                                                         eval_model_spec[
+                y_pred = np.array([])
+                labels = np.array([])
+                for i in range(num_steps):
+                    y_pred_batch, labels_batch, prob = sess.run([train_model_spec['cluster_idx'], train_model_spec['labels'], train_model_spec['prob']],
+                                              feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                                                         train_model_spec[
                                                              'learning_rate_placeholder']: params.initial_training_rate})
+                    y_pred = np.append(y_pred, y_pred_batch)
+                    labels = np.append(labels, labels_batch)
 
-                    counts = np.zeros(shape=(params.k, params.num_classes))
-                    for j in range(len(y_pred)):
-                        counts[y_pred[j], labels[j]] += 1
-                    counts = tf.convert_to_tensor(counts)
+                y_pred = y_pred.astype(int)
+                labels = labels.astype(int)
+                counts = np.zeros(shape=(params.k, params.num_classes))
+                for j in range(len(y_pred)):
+                    counts[y_pred[j], labels[j]] += 1
+                counts = tf.convert_to_tensor(counts)
 
-                    accuracy += sess.run(cluster_accuracy(labels, y_pred))
-                    nmi += sess.run(normalized_mutual_information(counts))
-                    ari += sess.run(adjuster_rand_index(counts))
+                # Assign the most frequent label to the centroid
+                labels_map = tf.argmax(counts, axis=1)  # find Label with max. occurrence along each row
+                # Evaluation ops
+                # Lookup: centroid_id -> label
+                y_pred = tf.nn.embedding_lookup(labels_map, y_pred)
+
+                accuracy = sess.run(cluster_accuracy(labels, y_pred))
+                nmi = sess.run(normalized_mutual_information(counts))
+                ari = sess.run(adjuster_rand_index(counts))
 
                 # Get the values of the metrics
-                metrics_values = {k: v[0] for k, v in eval_model_spec['metrics'].items()}
+                metrics_values = {k: v[0] for k, v in train_model_spec['metrics'].items()}
                 metrics_eval = sess.run(metrics_values)
 
-                metrics_eval['Accuracy'] = accuracy / num_steps_eval
-                metrics_eval['Normalized Mutual Information'] = nmi / num_steps_eval
-                metrics_eval['Adjusted Rand Index'] = ari / num_steps_eval
+                metrics_eval['Accuracy'] = accuracy
+                metrics_eval['Normalized Mutual Information'] = nmi
+                metrics_eval['Adjusted Rand Index'] = ari
                 print("Cluster_acc at Epoch ", epoch, ": %.2f" % metrics_eval['Accuracy'])
 
             # Load the training dataset into the pipeline and initialize the metrics local variables after every epoch
-
             sess.run(train_model_spec['iterator_init_op'])
             sess.run(train_model_spec['metrics_init_op'])
             for i in range(num_steps):
                 # Evaluate summaries for tensorboard only once in a while
                 if i % params.save_summary_steps == 0:
                     # Perform a mini-batch update
-                    _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
-                                                                      summary_op, global_step],
+                    _, _, loss_val, summ, global_step_val, prob = sess.run([train_op, update_metrics, loss,
+                                                                      summary_op, global_step, train_model_spec['prob']],
                                                                      feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                                                                                eval_model_spec['sigma_placeholder']: params.sigma,
-                                                                                train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                                                                                train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                                                                                train_model_spec['target_prob']: target_distribution[i]})
                     # Write summaries for tensorboard
                     writer.add_summary(summ, global_step_val)
 
@@ -173,7 +202,8 @@ def train_and_evaluate_idec(train_model_spec, eval_model_spec, model_dir, params
                 else:
                     _, _, loss_val = sess.run([train_op, update_metrics, loss],
                                               feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                                                         train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                                                         train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                                                         train_model_spec['target_prob']: target_distribution[i]})
 
             metrics_values = {k: v[0] for k, v in metrics.items()}
             metrics_val = sess.run(metrics_values)
