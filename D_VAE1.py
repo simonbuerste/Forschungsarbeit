@@ -6,24 +6,6 @@ def lrelu(x, alpha=0.2):
     return tf.maximum(x, tf.multiply(x, alpha))
 
 
-def sample_gumbel(shape, eps=1e-20):
-    u = tf.random_uniform(shape, minval=0, maxval=1)
-    return -tf.log(-tf.log(u + eps) + eps)
-
-
-def gumbel_softmax(logits, temperature, hard=False):
-    gumbel_softmax_sample = logits + sample_gumbel(tf.shape(logits))
-    y = tf.nn.softmax(gumbel_softmax_sample / temperature)
-
-    if hard:
-        k = tf.shape(logits)[-1]
-        y_hard = tf.cast(tf.equal(y, tf.reduce_max(y, 1, keep_dims=True)),
-                         y.dtype)
-        y = tf.stop_gradient(y_hard - y) + y
-
-    return y
-
-
 def selfattentionlayer(x, iteration, sigma):
 
     batch_size, h, w, num_channels = x.get_shape().as_list()
@@ -90,15 +72,11 @@ def encoder(encoder_input, is_training, params):
     z_log_sigma_sq = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
     print(z_mu.get_shape())
 
-    # q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-    # z = q_z.sample()
-
-    temperature = tf.constant(1.0)
-    q_z = gumbel_softmax(x, temperature)
-    z = q_z
+    q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
+    z = q_z.sample()
     print('-------Encoder-------')
 
-    return z, z_mu, z_log_sigma_sq, q_z
+    return z, z_mu, z_log_sigma_sq, q_z, sigma
 
 
 # Defining the Decoder
@@ -151,12 +129,8 @@ def build_model(inputs, is_training, params):
     # Calculate KL loss
     p_z = tf.distributions.Normal(tf.zeros_like(sampled), tf.ones_like(sampled))
 
-    #kl_loss = q_z.kl_divergence(p_z)
-    #kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
-
-    p = p_z.sample()
-    kl_loss = tf.multiply(p, tf.log(q_z / p))
-    kl_loss = tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
+    kl_loss = q_z.kl_divergence(p_z)
+    kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
     return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
 
@@ -218,6 +192,8 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
+    latent_img = tf.reshape(sampled, [-1, 1, params.n_latent, 1])
+    tf.summary.image('Latent Space', latent_img, max_outputs=6, collections=None, family=None)
     tf.summary.image('Reconstructions', tf.sigmoid(reconstructed_mean), max_outputs=6, collections=None, family=None)
 
     # -----------------------------------------------------------
