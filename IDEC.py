@@ -14,38 +14,13 @@ def target_distr(q):
     return p
 
 
-def init_centroids(imgs, params):
-    # 1st Step: Initialize centroids randomly by samples
-    n_samples = tf.shape(imgs)[0]
-    random_indices = tf.random_shuffle(tf.range(0, n_samples))
-    begin = [0, ]
-    size = [params.k, ]
-    size[0] = params.k
-    centroid_indices = tf.slice(random_indices, begin, size)
-    centroids = tf.gather(imgs, centroid_indices)
-
-    # Do assigning and cluster updating for one run of training samples
-    # 2nd Step: Assign samples to centroids
-    expanded_vectors = tf.expand_dims(imgs, 0)
-    expanded_centroids = tf.expand_dims(centroids, 1)
-    distances = tf.reduce_sum(tf.square(tf.subtract(expanded_vectors, expanded_centroids)), 2)
-    nearest_indices = tf.argmin(distances, 0)
-
-    # 3rd Step: Update Cluster centers
-    nearest_indices = tf.to_int32(nearest_indices)
-    partitions = tf.dynamic_partition(imgs, nearest_indices, params.k)
-    centroids = tf.concat([tf.expand_dims(tf.reduce_mean(partition, 0), 0) for partition in partitions], 0)
-
-    return centroids
-
-
 def build_idec_model(inputs, params):
     imgs = inputs["samples"]
 
     cluster_centers = tf.get_variable(name='cluster_centers', shape=(params.k, params.n_latent), initializer=tf.zeros_initializer)  # init_centroids(imgs, params))
 
     q = student_t_distr(imgs, cluster_centers)
-    p = tf.placeholder(tf.float32, shape=(params.train_batch_size, params.k), name="target_distr")# tf.get_variable(name='target_prob', initializer=tf.zeros_initializer, shape=(params.train_batch_size, params.k), trainable=False)
+    p = tf.placeholder(tf.float32, shape=(None, params.k), name="target_distr")# tf.get_variable(name='target_prob', initializer=tf.zeros_initializer, shape=(params.train_batch_size, params.k), trainable=False)
     #p = tf.reshape(p, [-1, params.k])
     update_target_distr = target_distr(q)
 

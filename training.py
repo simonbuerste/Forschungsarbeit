@@ -39,7 +39,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
             _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
                                                               summary_op, global_step],
                                                              feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate})#, model_spec['gamma_placeholder']: params.gamma})
             # Write summaries for tensorboard
             writer.add_summary(summ, global_step_val)
 
@@ -48,7 +48,7 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss],
                                       feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate})
+                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate})#, model_spec['gamma_placeholder']: params.gamma})
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
@@ -113,8 +113,8 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
-            if epoch > 5:
-                params.sigma = 0.0  # np.minimum(1.0, np.multiply(0.2, (epoch-5.0)))
+            if epoch > 10:
+                params.gamma = np.minimum(1.0, np.multiply(0.1, (epoch-10.0)))
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
             num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size

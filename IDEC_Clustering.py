@@ -4,65 +4,16 @@ import logging
 import tensorflow as tf
 import numpy as np
 
-from evaluation import evaluate_sess
+from tensorflow.contrib.factorization import KMeansClustering
+
 from utils import save_dict_to_json
 from utils import Params
-from tensorflow.contrib.factorization import KMeansClustering
+from utils import visualize_embeddings
+from utils import visualize_umap
 
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
 from metrics import adjuster_rand_index
-
-
-def target_distr(q):
-    weight = q**2 / tf.reduce_sum(q, 0)
-    p = tf.transpose(tf.transpose(weight) / tf.reduce_sum(weight, 1))
-    tmp1 = weight.eval()
-    tmp2 = p.eval
-    return p
-
-
-def train_sess(sess, model_spec, num_steps, writer, params):
-    """Train the model on `num_steps` batches
-    Args:
-        sess: (tf.Session) current session
-        model_spec: (dict) contains the graph operations or nodes needed for training
-        num_steps: (int) train for this number of batches
-        writer: (tf.summary.FileWriter) writer for summaries
-        params: (Params) hyperparameters
-    """
-    # Get relevant graph operations or nodes needed for training
-    loss = model_spec['loss']
-    train_op = model_spec['train_op']
-    update_metrics = model_spec['update_metrics']
-    metrics = model_spec['metrics']
-    summary_op = model_spec['summary_op']
-    global_step = tf.train.get_global_step()
-
-    # Load the training dataset into the pipeline and initialize the metrics local variables
-    sess.run(model_spec['iterator_init_op'])
-    sess.run(model_spec['metrics_init_op'])
-
-    for i in range(num_steps):
-        # Evaluate summaries for tensorboard only once in a while
-        if i % params.save_summary_steps == 0:
-            # Perform a mini-batch update
-            _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
-                                                              summary_op, global_step])
-            # Write summaries for tensorboard
-            writer.add_summary(summ, global_step_val)
-
-            # Output Training Loss after each summary step
-            print("Training_loss after Step ", global_step_val, ":", loss_val)
-        else:
-            _, _, loss_val = sess.run([train_op, update_metrics, loss])
-
-    metrics_values = {k: v[0] for k, v in metrics.items()}
-    metrics_val = sess.run(metrics_values)
-    metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_val.items())
-    logging.info("- Train metrics: " + metrics_string)
-
-    return metrics_val
 
 
 def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore_from=None, vars_to_restore=None):
@@ -82,8 +33,6 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
     begin_at_epoch = 0
 
     with tf.Session(config=config) as sess:
-        # Initialize iterator because cluster center initialization need samples
-        #sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
         # Initialize model variables
         sess.run(train_model_spec['variable_init_op'], feed_dict={train_model_spec['sigma_placeholder']: params.sigma})
 
@@ -91,7 +40,6 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
         if restore_from is not None:
             if os.path.isdir(restore_from):
                 restore_from = tf.train.latest_checkpoint(restore_from)
-                #begin_at_epoch = int(restore_from.split('-')[-1])
             last_saver.restore(sess, restore_from)
 
         # For tensorboard (takes care of writing summaries to files)
@@ -110,7 +58,7 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
 
         # Initialization of centers by running kmeans
         cluster_centers = train_model_spec['cluster_centers']
-        kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=False)
+        kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=True)
         for i in range(20):
             sess.run(train_model_spec['iterator_init_op'])
             kmeans_model.train(lambda: sess.run(train_model_spec['samples'], feed_dict={train_model_spec['sigma_placeholder']:
@@ -127,34 +75,46 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
 
         for epoch in range(begin_at_epoch, (begin_at_epoch + params.num_epochs)):
             # Run one epoch
-            if epoch % params.eval_visu_step == 0:
+            if epoch % params.eval_visu_step == 0 or epoch == begin_at_epoch + params.num_epochs - 1:
 
                 sess.run(train_model_spec['metrics_init_op'])
                 sess.run(train_model_spec['iterator_init_op'])
 
-                # First Train the distribution
-                #tmp1 = train_model_spec['target_prob'].eval()
+                # Update the target distribution for all samples
+                # And assign the prediction ((cluster_idx) to each sample
                 target_distribution = {}
-                for i in range(num_steps):
-                    p_batch, prob = sess.run([train_model_spec['train_op_distribution'], train_model_spec['prob']],
-                             feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                                        train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
-                    p = target_distr(prob)
-                    target_distribution[i] = p_batch
-                sess.run(train_model_spec['iterator_init_op'])
-
-                #tmp2 = train_model_spec['target_prob'].eval()
-                # Then assign the cluster_idx to each sample
                 y_pred = np.array([])
                 labels = np.array([])
                 for i in range(num_steps):
-                    y_pred_batch, labels_batch, prob = sess.run([train_model_spec['cluster_idx'], train_model_spec['labels'], train_model_spec['prob']],
+                    target_distribution[i], y_pred_batch, labels_batch, img = sess.run([train_model_spec['train_op_distribution'], train_model_spec['cluster_idx'], train_model_spec['labels'], train_model_spec["sample"]],
                                               feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                                                         train_model_spec[
-                                                             'learning_rate_placeholder']: params.initial_training_rate})
+                                                         train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
                     y_pred = np.append(y_pred, y_pred_batch)
                     labels = np.append(labels, labels_batch)
-
+                            # Input set for TensorBoard visualization
+                    if params.visualize == 1:
+                        if i == 0:
+                            embedded_data = img
+                            embedded_labels = labels_batch
+                        elif i < 10: # just the embeddings of first 10 batches are saved due to memory restrictions
+                            embedded_data = np.concatenate((embedded_data, img), axis=0)
+                            embedded_labels = np.concatenate((embedded_labels, labels_batch), axis=0)
+                    else:
+                        embedded_data = []
+                        embedded_labels = []
+                
+                # Write embeddings to external files for visualizing if desired
+                if params.visualize == 1:
+                    log_dir = writer.get_logdir()
+                    metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
+                    img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
+                    np.savetxt(img_latentspace, embedded_data)
+    
+                    # def save_metadata(file):
+                    with open(metadata, 'w') as metadata_file:
+                        for c in embedded_labels:
+                            metadata_file.write('{}\n'.format(c))
+                        
                 y_pred = y_pred.astype(int)
                 labels = labels.astype(int)
                 counts = np.zeros(shape=(params.k, params.num_classes))
@@ -188,8 +148,8 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                 # Evaluate summaries for tensorboard only once in a while
                 if i % params.save_summary_steps == 0:
                     # Perform a mini-batch update
-                    _, _, loss_val, summ, global_step_val, prob = sess.run([train_op, update_metrics, loss,
-                                                                      summary_op, global_step, train_model_spec['prob']],
+                    _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
+                                                                      summary_op, global_step],
                                                                      feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
                                                                                 train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
                                                                                 train_model_spec['target_prob']: target_distribution[i]})
@@ -200,8 +160,7 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                     print("Training_loss after Step ", global_step_val, ":", loss_val)
                     # print("Step", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/(params.num_epochs*num_steps)), "% done")
                 else:
-                    _, _, loss_val = sess.run([train_op, update_metrics, loss],
-                                              feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
+                    _, _ = sess.run([train_op, update_metrics], feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
                                                          train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
                                                          train_model_spec['target_prob']: target_distribution[i]})
 
@@ -221,3 +180,8 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
 
             save_dict_to_json(metrics_eval, last_json_path)
+        
+        # Visualize embeddings if desired
+        if params.visualize == 1:
+            visualize_embeddings(sess, log_dir, writer, params)
+            visualize_umap(sess, log_dir, writer, params)

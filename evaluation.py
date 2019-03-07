@@ -48,51 +48,58 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     ari = 0
     
     # compute metrics over the dataset
+    ypred = np.array([])
+    labels = np.array([])
     for i in range(num_steps):
-        _, idx, labels, img = sess.run(
+        _, idx_batch, labels_batch, img = sess.run(
             [update_metrics, model_spec['cluster_idx'], model_spec["labels"],
-             model_spec["sample"]], feed_dict={model_spec['sigma_placeholder']: params.sigma})
+             model_spec["sample"]], feed_dict={model_spec['sigma_placeholder']: params.sigma})#, model_spec['gamma_placeholder']: params.gamma})
+             
+        ypred = np.append(ypred, idx_batch)
+        labels = np.append(labels, labels_batch)
 
         # Input set for TensorBoard visualization
         if params.visualize == 1:
             if i == 0:
                 embedded_data = img
-                embedded_labels = labels
+                embedded_labels = labels_batch
             else:
                 embedded_data = np.concatenate((embedded_data, img), axis=0)
-                embedded_labels = np.concatenate((embedded_labels, labels), axis=0)
+                embedded_labels = np.concatenate((embedded_labels, labels_batch), axis=0)
         else:
             embedded_data = []
             embedded_labels = []
+            
+    ypred = ypred.astype(int)
+    labels = labels.astype(int)
+    # Evaluate
 
-        # Evaluate
+    # Assign a label to each centroid
+    # Count total number of labels per centroid, using the label of each training
+    # sample to their closest centroid (given by 'cluster_idx')
+    counts = np.zeros(shape=(params.k, params.num_classes))
+    for j in range(len(ypred)):
+        counts[ypred[j], labels[j]] += 1
+    counts = tf.convert_to_tensor(counts)
 
-        # Assign a label to each centroid
-        # Count total number of labels per centroid, using the label of each training
-        # sample to their closest centroid (given by 'cluster_idx')
-        counts = np.zeros(shape=(params.k, params.num_classes))
-        for j in range(len(idx)):
-            counts[idx[j], labels[j]] += 1
-        counts = tf.convert_to_tensor(counts)
+    # Assign the most frequent label to the centroid
+    labels_map = tf.argmax(counts, axis=1)  # find Label with max. occurrence along each row
 
-        # Assign the most frequent label to the centroid
-        labels_map = tf.argmax(counts, axis=1)  # find Label with max. occurrence along each row
+    # Evaluation ops
+    # Lookup: centroid_id -> label
+    y_pred = tf.nn.embedding_lookup(labels_map, ypred)
 
-        # Evaluation ops
-        # Lookup: centroid_id -> label
-        y_pred = tf.nn.embedding_lookup(labels_map, idx)
-
-        accuracy += sess.run(cluster_accuracy(labels, y_pred))
-        nmi += sess.run(normalized_mutual_information(counts))
-        ari += sess.run(adjuster_rand_index(counts))
+    accuracy = sess.run(cluster_accuracy(labels, y_pred))
+    nmi = sess.run(normalized_mutual_information(counts))
+    ari = sess.run(adjuster_rand_index(counts))
 
     # Get the values of the metrics
     metrics_values = {k: v[0] for k, v in eval_metrics.items()}
     metrics_val = sess.run(metrics_values)
 
-    metrics_val['Accuracy'] = accuracy / num_steps
-    metrics_val['Normalized Mutual Information'] = nmi / num_steps
-    metrics_val['Adjusted Rand Index'] = ari / num_steps
+    metrics_val['Accuracy'] = accuracy
+    metrics_val['Normalized Mutual Information'] = nmi
+    metrics_val['Adjusted Rand Index'] = ari
 
     metrics_string = " ; ".join("{}: {:05.3f}".format(k, v) for k, v in metrics_val.items())
     logging.info("- Eval metrics: " + metrics_string)

@@ -83,19 +83,14 @@ def encoder(encoder_input, is_training, params):
     print(x.get_shape())
 
     z_mu = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    z_log_sigma_sq = tf.layers.dense(x, units=params.n_latent,
-                                     kernel_initializer=tf.contrib.layers.xavier_initializer())
     print(z_mu.get_shape())
-
-    # q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
-    # z = q_z.sample()
 
     temperature = tf.constant(1.0)
     z = gumbel_softmax(z_mu, temperature)
     q_z = tf.nn.softmax(z_mu)
     print('-------Encoder-------')
 
-    return z, z_mu, z_log_sigma_sq, q_z, sigma
+    return z, z_mu, q_z, sigma
 
 
 # Defining the Decoder
@@ -134,7 +129,7 @@ def decoder(sampled_z, is_training, params):
 def build_model(inputs, is_training, params):
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled, z_mu, z_log_sigma_sq, q_z, sigma_placeholder = encoder(original_img, is_training, params)
+    sampled, z_mu, q_z, sigma_placeholder = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
 
     # Calculate log likelihood
@@ -146,7 +141,8 @@ def build_model(inputs, is_training, params):
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     log_q_z = tf.log(q_z + 1e-20)
-    kl_loss = tf.multiply(q_z, (log_q_z - tf.log(1.0 / params.k)))
+    log_p_z = tf.log(gumbel_softmax(z_mu, tf.constant(0.1)) + 1e-20)
+    kl_loss = tf.multiply(q_z, (log_q_z - log_p_z))
     kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
     return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
@@ -176,8 +172,9 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
         loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training,
                                                                                                params)
 
+    gamma = tf.placeholder(tf.float32, [], name="gamma")
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood + kl_loss)
+    loss = tf.reduce_mean(loss_likelihood + gamma*kl_loss)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -230,6 +227,7 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
+    #model_spec['gamma_placeholder'] = gamma
 
     if mode == 'train':
         model_spec['train_op'] = train_op
