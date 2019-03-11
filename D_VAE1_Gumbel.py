@@ -82,22 +82,24 @@ def encoder(encoder_input, is_training, params):
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
 
-    z_mu = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    print(z_mu.get_shape())
+    logits_z = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    #logits_z = tf.reshape(logits_z, [-1, params.cat_distr, params.k])
+    print(logits_z.get_shape())
 
-    temperature = tf.constant(1.0)
-    z = gumbel_softmax(z_mu, temperature)
-    q_z = tf.nn.softmax(z_mu)
+    q_z = tf.nn.softmax(logits_z)
+
+    temperature = tf.constant(2.0)
+    z = gumbel_softmax(logits_z, temperature)#tf.reshape(gumbel_softmax(logits_z, temperature), [-1, params.cat_distr, params.k])
+    print(logits_z.get_shape())
     print('-------Encoder-------')
 
-    return z, z_mu, q_z, sigma
+    return z, logits_z, q_z, sigma
 
 
 # Defining the Decoder
 def decoder(sampled_z, is_training, params):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
-
     reshaped_dim = [-1, 2, 2, params.n_latent]
     inputs_decoder = int(2 * 2 * params.n_latent)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
@@ -129,7 +131,7 @@ def decoder(sampled_z, is_training, params):
 def build_model(inputs, is_training, params):
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled, z_mu, q_z, sigma_placeholder = encoder(original_img, is_training, params)
+    sampled, logits_z, q_z, sigma_placeholder = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
 
     # Calculate log likelihood
@@ -141,8 +143,8 @@ def build_model(inputs, is_training, params):
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     log_q_z = tf.log(q_z + 1e-20)
-    log_p_z = tf.log(gumbel_softmax(z_mu, tf.constant(0.1)) + 1e-20)
-    kl_loss = tf.multiply(q_z, (log_q_z - log_p_z))
+    p_z = gumbel_softmax(logits_z, tf.constant(0.5))
+    kl_loss = tf.multiply(p_z, (tf.log(p_z + 1e-20) - log_q_z))
     kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
     return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
@@ -160,6 +162,9 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
     Returns:
         model_spec: (dict) contains the graph operations or nodes needed for training / evaluation
     """
+
+    params.cat_distr = params.n_latent//params.k
+    params.n_latent = params.cat_distr*params.k
 
     if mode == 'train':
         is_training = True
@@ -227,7 +232,7 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
-    #model_spec['gamma_placeholder'] = gamma
+    model_spec['gamma_placeholder'] = gamma
 
     if mode == 'train':
         model_spec['train_op'] = train_op
