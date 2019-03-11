@@ -6,6 +6,17 @@ def lrelu(x, alpha=0.2):
     return tf.maximum(x, tf.multiply(x, alpha))
 
 
+def sample_gumbel(shape, eps=1e-20):
+    u = tf.random_uniform(shape, minval=0, maxval=1)
+    return -tf.log(-tf.log(u + eps) + eps)
+
+
+def gumbel_softmax(logits, temperature):
+    gumbel_softmax_sample = logits + sample_gumbel(tf.shape(logits))
+    y = tf.nn.softmax(gumbel_softmax_sample / temperature)
+    return y
+
+
 def selfattentionlayer(x, iteration, sigma):
 
     batch_size, h, w, num_channels = x.get_shape().as_list()
@@ -68,15 +79,27 @@ def encoder(encoder_input, is_training, params):
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
 
-    z_mu = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    z_log_sigma_sq = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    print(z_mu.get_shape())
+    gaussian = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    categorical = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
 
+    # gaussian path
+    z_mu = tf.layers.dense(gaussian, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    z_log_sigma_sq = tf.layers.dense(gaussian, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
     q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
     z = q_z.sample()
+
+    # categorical path
+    categorical = tf.layers.dense(categorical, units=params.n_latent//2, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    l = tf.layers.dense(categorical, units=params.k, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    c = gumbel_softmax(l, tf.constant(1.0))
+
+    z_ = tf.layers.dense(z, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    c_ = tf.layers.dense(c, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+    latent = z_ + c_
     print('-------Encoder-------')
 
-    return z, z_mu, z_log_sigma_sq, q_z, sigma
+    return latent, c, z, q_z, sigma
 
 
 # Defining the Decoder
@@ -115,8 +138,8 @@ def build_model(inputs, is_training, params):
 
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    sampled, z_mu, z_log_sigma_sq, q_z, sigma_placeholder = encoder(original_img, is_training, params)
-    reconstructed_mean = decoder(sampled, is_training, params)
+    latent, cat_sampled, z, q_z, sigma_placeholder = encoder(original_img, is_training, params)
+    reconstructed_mean = decoder(latent, is_training, params)
 
     # Calculate log likelihood
     #loss_likelihood = original_img * tf.log(1e-10+ reconstructed_mean) + (1- original_img)*tf.log(1e-10+1-reconstructed_mean)
@@ -126,13 +149,17 @@ def build_model(inputs, is_training, params):
     help_p = tf.distributions.Bernoulli(logits=reconstructed_mean)
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
-    # Calculate KL loss
-    p_z = tf.distributions.Normal(tf.zeros_like(sampled), tf.ones_like(sampled))
+    # Calculate KL loss of gaussian path
+    p_z = tf.distributions.Normal(tf.zeros_like(z), tf.ones_like(z))
+    kl_loss_gaussian = q_z.kl_divergence(p_z)
+    kl_loss_gaussian = tf.reduce_mean(tf.reduce_sum(kl_loss_gaussian, axis=-1))
 
-    kl_loss = q_z.kl_divergence(p_z)
-    kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
+    # Calculate KL loss of categorical path
+    log_p_z = tf.log(1/params.k)
+    kl_loss_cat = cat_sampled*(tf.log(cat_sampled+1e-20) - log_p_z)
+    kl_loss_cat = tf.reduce_mean(tf.reduce_sum(kl_loss_cat, axis=-1))
 
-    return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
+    return loss_likelihood, kl_loss_gaussian, kl_loss_cat, latent, cat_sampled, reconstructed_mean, sigma_placeholder
 
 
 def vae_model_fn(mode, inputs, params, reuse=False):
@@ -156,10 +183,11 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training, params)
+        loss_likelihood, kl_loss_gauss, kl_loss_cat, latent_img, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training, params)
 
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood + kl_loss)
+    w_g = tf.constant(5.0)
+    loss = tf.reduce_mean(loss_likelihood + w_g*kl_loss_gauss + kl_loss_cat)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -175,7 +203,8 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     with tf.variable_scope("vae_metrics"):
         metrics = {
             'loss': tf.metrics.mean(loss),
-            'kl_loss': tf.metrics.mean(kl_loss),
+            'kl_loss_gauss': tf.metrics.mean(kl_loss_gauss),
+            'kl_loss_categorical': tf.metrics.mean(kl_loss_cat),
             'neg_log_likelihood': tf.metrics.mean(loss_likelihood)
         }
 
@@ -188,11 +217,12 @@ def vae_model_fn(mode, inputs, params, reuse=False):
 
     # Summaries for training
     tf.summary.scalar('loss', loss)
-    tf.summary.scalar('kl_loss', kl_loss)
+    tf.summary.scalar('kl_loss_gauss', kl_loss_gauss)
+    tf.summary.scalar('kl_loss_categorical', kl_loss_cat)
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
-    latent_img = tf.reshape(sampled, [-1, 1, params.n_latent, 1])
+    latent_img = tf.reshape(sampled, [-1, 1, params.k, 1])
     tf.summary.image('Latent Space', latent_img, max_outputs=6, collections=None, family=None)
     tf.summary.image('Reconstructions', tf.sigmoid(reconstructed_mean), max_outputs=6, collections=None, family=None)
 
@@ -212,6 +242,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
+    model_spec['gamma_placeholder'] = tf.placeholder(tf.float32, [], name="gamma")
 
     if mode == 'train':
         model_spec['train_op'] = train_op
