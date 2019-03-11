@@ -84,7 +84,7 @@ def build_model(inputs, is_training, params):
     collection = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='kmeans')
     reset_op = tf.initialize_variables(collection)
 
-    return loss_square, sampled, reconstructed_mean, all_scores[0], init_op, train_op, reset_op
+    return loss_square, sampled, reconstructed_mean, scores[0], init_op, train_op, reset_op
 
 
 def b_ae_model_fn(mode, inputs, params, reuse=False):
@@ -109,18 +109,44 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('b_ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, sampled, reconstructed_mean, cluster_center_dist, kmeans_init_op, kmeans_train_op, cluster_reset_op = \
+        loss_likelihood, sampled, reconstructed_mean, cluster_center_sim, kmeans_init_op, kmeans_train_op, cluster_reset_op = \
             build_model(inputs, is_training, params)
 
-    # Sum over all squared euclidean distances from sample to closest cluster center
+    # Create Similarity matrix of original images
+    # Used for discrimintaive Loss
+    z = inputs["img"]/tf.norm(inputs["img"], ord=1)
+    z_flat = tf.contrib.layers.flatten(z)
+    sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
+    sum_anchor = (tf.shape(sampled)[-1])//20  #*0.05 (5%)
+    _, anchor_idx = tf.nn.top_k(sim_original_img, k=sum_anchor)
+
+    #tmp=anchor_idx.eval()
+    z = sampled/tf.norm(sampled, ord=1)
+    C_ij = tf.matmul(z, z, transpose_b=True)
+    anchor_val = tf.gather(C_ij, anchor_idx)
+
+    batch_size = (tf.shape(sampled)[-1])
+    alpha = tf.constant(0.5)
+
+    L_d = tf.cast((1/(batch_size**2 - sum_anchor)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij), [0, 1])-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
+    x = (1.0 - alpha) / tf.cast(sum_anchor, tf.float32)
+    y = tf.cast(tf.reduce_sum(tf.abs(anchor_val)), tf.float32)
+    L_d = L_d - x*y
+
+    # Sum over all similarities from sample to closest cluster center
     # set the input of this operation (the clusters) as not trainable for the optimizer by stopping gradient here
-    sum_cluster_dist = tf.stop_gradient(tf.reduce_mean(tf.reduce_min(cluster_center_dist, axis=1)))
+    L_c = tf.stop_gradient(tf.reduce_sum(cluster_center_sim))
+    L_r = loss_likelihood
+    lambda_r = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
+    lambda_d = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
+    lambda_c = tf.placeholder(tf.float32, shape=[], name='cluster_sim_regularization')
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood+params.lambd*sum_cluster_dist)
+    loss = tf.reduce_mean(L_d+L_r)#+lambda_c*L_c)
 
     # Define training step that minimizes the loss with the Adam optimizer
+    learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
     if mode == 'train':
-        optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
+        optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         global_step = tf.train.get_or_create_global_step()
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=global_step)
@@ -167,8 +193,11 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['summary_op'] = tf.summary.merge_all()
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['cluster_center_init'] = kmeans_init_op
+    model_spec['learning_rate_placeholder'] = learning_rate_ph
+    model_spec['sigma_placeholder'] = tf.placeholder(tf.float32, [], name="sigma_ratio")
 
     if mode == 'train':
+        #train_op = tf.group(*[train_op, kmeans_train_op])
         model_spec['train_op'] = train_op
         model_spec['cluster_center_update'] = kmeans_train_op
         model_spec['cluster_center_reset'] = cluster_reset_op
