@@ -163,8 +163,8 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
         model_spec: (dict) contains the graph operations or nodes needed for training / evaluation
     """
 
-    params.cat_distr = params.n_latent//params.k
-    params.n_latent = params.cat_distr*params.k
+    #params.cat_distr = params.n_latent//params.k
+    #params.n_latent = params.cat_distr*params.k
 
     if mode == 'train':
         is_training = True

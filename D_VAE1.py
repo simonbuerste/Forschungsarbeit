@@ -222,7 +222,7 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
-    latent_img = tf.reshape(sampled, [-1, 1, params.k, 1])
+    latent_img = tf.reshape(sampled, [-1, 1, params.n_latent, 1])
     tf.summary.image('Latent Space', latent_img, max_outputs=6, collections=None, family=None)
     tf.summary.image('Reconstructions', tf.sigmoid(reconstructed_mean), max_outputs=6, collections=None, family=None)
 

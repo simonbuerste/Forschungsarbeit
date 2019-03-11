@@ -4,6 +4,8 @@ import logging
 import tensorflow as tf
 import numpy as np
 
+from tensorflow.contrib.factorization import KMeansClustering
+
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
@@ -22,7 +24,10 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     """
     # Get relevant graph operations or nodes needed for training
     loss = model_spec['loss']
-    train_op = model_spec['train_op']
+    if "train_op_c" in model_spec:
+        train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_c']])
+    else:
+        train_op = model_spec['train_op']
     update_metrics = model_spec['update_metrics']
     metrics = model_spec['metrics']
     summary_op = model_spec['summary_op']
@@ -39,7 +44,8 @@ def train_sess(sess, model_spec, num_steps, writer, params):
             _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
                                                               summary_op, global_step],
                                                              feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate})#, model_spec['gamma_placeholder']: params.gamma})
+                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate, model_spec['gamma_placeholder']: params.gamma,
+                                                                        model_spec['lambda_r_placeholder']: params.lambda_r, model_spec['lambda_c_placeholder']: params.lambda_c, model_spec['lambda_d_placeholder']: params.lambda_d})
             # Write summaries for tensorboard
             writer.add_summary(summ, global_step_val)
 
@@ -48,11 +54,14 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss],
                                       feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate})#, model_spec['gamma_placeholder']: params.gamma})
+                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate, model_spec['gamma_placeholder']: params.gamma,
+                                                                        model_spec['lambda_r_placeholder']: params.lambda_r, model_spec['lambda_c_placeholder']: params.lambda_c, model_spec['lambda_d_placeholder']: params.lambda_d})
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
-        sess.run(model_spec['cluster_center_reset'])
+        #sess.run(model_spec['cluster_center_reset'])
+        sess.run(model_spec['iterator_init_op'])
+        sess.run(model_spec['cluster_center_init'])
         sess.run(model_spec['iterator_init_op'])
         for i in range(num_steps):
             sess.run(model_spec['cluster_center_update'])
@@ -85,13 +94,6 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         # Initialize model variables
         sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']])
 
-        # If we are using clusters in the train model spec, initialize the cluster centers
-        if 'cluster_center_init' in train_model_spec:
-            sess.run(train_model_spec['iterator_init_op'])
-            sess.run(train_model_spec['cluster_center_init'])
-            sess.run(eval_model_spec['iterator_init_op'])
-            sess.run(eval_model_spec['cluster_center_init'])
-
         # Reload weights from directory if specified
         if restore_from is not None:
             if os.path.isdir(restore_from):
@@ -113,13 +115,33 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
-            params.sigma = np.minimum(1.0, np.multiply(0.1, epoch))
-            if epoch > 10:
-                params.gamma = 1.0 #np.minimum(1.0, np.multiply(0.1, (epoch-10.0)))
+            if epoch < 10:
+                params.lambda_r = 0.1
+                params.lamdba_c = 0
+                params.lambda_d = 1.0
+            elif epoch > 9:
+                params.lambda_r = 0.1
+                params.lambda_c = -1.0
+                params.lambda_d = 1.0
+                #params.sigma = np.minimum(1.0, np.multiply(0.1, epoch))
+                #params.gamma = np.minimum(5.0, np.multiply(1.0, (epoch-10.0)))
+
+            num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
+
+            # If we are using clusters in the train model spec, initialize the cluster centers
+            if 'cluster_centers' in train_model_spec and epoch == 9:
+                # Initialization of centers by running kmeans
+                cluster_centers = train_model_spec['cluster_centers']
+                kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=True, distance_metric='cosine')
+                for i in range(20):
+                    sess.run(train_model_spec['iterator_init_op'])
+                    kmeans_model.train(
+                        lambda: sess.run(train_model_spec['samples'],
+                                         feed_dict={train_model_spec['sigma_placeholder']:
+                                                        params.sigma}), steps=num_steps)
+                sess.run(cluster_centers.assign(kmeans_model.cluster_centers()))
 
             # Run one epoch
-            # Compute number of batches in one epoch (one full pass over the training set)
-            num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
             metrics_train = train_sess(sess, train_model_spec, num_steps, train_writer, params)
 
             # Save weights

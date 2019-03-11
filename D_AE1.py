@@ -203,6 +203,7 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
+    model_spec['gamma_placeholder'] = tf.placeholder(tf.float32, [], name="gamma")
 
     if mode == 'train':
         model_spec['train_op'] = train_op
