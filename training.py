@@ -113,8 +113,10 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
+            params.sigma = np.minimum(1.0, np.multiply(0.1, epoch))
             if epoch > 10:
-                params.gamma = np.minimum(1.0, np.multiply(0.1, (epoch-10.0)))
+                params.gamma = 1.0 #np.minimum(1.0, np.multiply(0.1, (epoch-10.0)))
+
             # Run one epoch
             # Compute number of batches in one epoch (one full pass over the training set)
             num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
