@@ -103,10 +103,13 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     with tf.variable_scope('b_ae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
         loss_likelihood, sampled, reconstructed_mean = build_model(inputs, is_training, params)
+        L_kl_matrix = tf.get_variable(name='L_kl_matrix', shape=(params.k, params.k), initializer=tf.zeros_initializer)
+        L_w_matrix = tf.get_variable(name='L_w_matrix', shape=params.k, initializer=tf.zeros_initializer)
 
     with tf.variable_scope('cluster_center', reuse=reuse):
         cluster_centers = tf.get_variable(name='cluster_centers', shape=(params.k, params.n_latent),
                                           initializer=tf.glorot_uniform_initializer)
+
     # Create Similarity matrix of original images
     # Used for discrimintaive Loss
     z = inputs["img"]/tf.norm(inputs["img"], ord=1)
@@ -115,10 +118,9 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     sum_anchor = (tf.shape(sampled)[-1])//10  #*0.05 (5%)
     _, anchor_idx = tf.nn.top_k(sim_original_img, k=sum_anchor)
 
-    #tmp=anchor_idx.eval()
     z = sampled/tf.norm(sampled, ord=1)
     C_ij = tf.matmul(z, z, transpose_b=True)
-    anchor_val = tf.gather(C_ij, anchor_idx)
+    anchor_val = tf.batch_gather(C_ij, anchor_idx)
 
     batch_size = (tf.shape(sampled)[-1])
     alpha = tf.constant(0.75)
@@ -130,16 +132,36 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     # Sum over all similarities from sample to closest cluster center
     # set the input of this operation (the clusters) as not trainable for the optimizer by stopping gradient here
-    #cluster_centers_normed = cluster_centers/tf.norm(cluster_centers, ord=1)
-    cluster_center_sim = tf.matmul(sampled, cluster_centers, transpose_b=True)
+    cluster_centers_normed = cluster_centers/tf.norm(cluster_centers, ord=1)
+    cluster_center_sim = tf.matmul(z, cluster_centers_normed, transpose_b=True)
     assignment = tf.stop_gradient(tf.one_hot(tf.argmax(cluster_center_sim, axis=1), params.k))
     L_c = tf.reduce_sum(assignment*cluster_center_sim)
     L_r = loss_likelihood
+
+    for i in range(params.k):
+        idx_i = tf.cast(tf.where(tf.argmax(cluster_center_sim, axis=1) == i), tf.int32)
+        C_i = tf.gather(C_ij, idx_i)
+        for j in range(params.k):
+            idx_j = tf.cast(tf.where(tf.argmax(cluster_center_sim, axis=1) == j), tf.int32)
+            cluster_ij = tf.gather(C_i, idx_j)
+
+            kardinality_cluster_i = tf.cast(tf.shape(idx_i)[-1], tf.float32)
+            kardinality_cluster_j = tf.cast(tf.shape(idx_j)[-1], tf.float32)
+            if i == j:
+                L_w_matrix[i].assign(kardinality_cluster_i**-2)*tf.reduce_sum(cluster_ij)
+            else:
+                L_kl_matrix[i, j].assign(1/(kardinality_cluster_i*kardinality_cluster_j))*tf.reduce_sum(tf.abs(cluster_ij))
+
+    L_w = tf.reduce_sum(L_w_matrix)
+    L_b = tf.reduce_max(L_kl_matrix)
+
     lambda_r = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
     lambda_d = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
-    lambda_c = tf.placeholder(tf.float32, shape=[], name='cluster_sim_regularization')
+    lambda_c = tf.placeholder(tf.float32, shape=[], name='center_sim_regularization')
+    lambda_b = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
+    lambda_w = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
     # Define the Loss
-    loss = tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r)
+    loss = tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -149,11 +171,11 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
         vars_ae_train_op = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "b_ae_model")
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=global_step, var_list=vars_ae_train_op)
-            constr_optimizer = tf.contrib.constrained_optimization.ConstrainedOptimizer(optimizer)
-            constr_opt_problem = tf.contrib.constrained_optimization.ConstrainedMinimizationProblem()
-            constr_opt_problem.objective = -L_c
-            constr_opt_problem.constraints = (tf.norm(cluster_centers, ord=1)==1)
-            train_op_c = constr_optimizer.minimize_constrained(constr_opt_problem, global_step=global_step, var_list=[cluster_centers])
+            #constr_optimizer = tf.contrib.constrained_optimization.ConstrainedOptimizer(optimizer)
+            #constr_opt_problem = tf.contrib.constrained_optimization.ConstrainedMinimizationProblem()
+            #constr_opt_problem.objective = -L_c
+            #constr_opt_problem.constraints = (tf.norm(cluster_centers, ord=1)==1)
+            train_op_c = optimizer.minimize(-L_c, global_step=global_step, var_list=[cluster_centers])
 
     # -----------------------------------------------------------
     # METRICS AND SUMMARIES
@@ -201,6 +223,8 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['lambda_r_placeholder'] = lambda_r
     model_spec['lambda_c_placeholder'] = lambda_c
     model_spec['lambda_d_placeholder'] = lambda_d
+    model_spec['lambda_b_placeholder'] = lambda_b
+    model_spec['lambda_w_placeholder'] = lambda_w
     model_spec['sigma_placeholder'] = tf.placeholder(tf.float32, [], name="sigma_ratio")
     model_spec['gamma_placeholder'] = tf.placeholder(tf.float32, [], name="gamma")
 
