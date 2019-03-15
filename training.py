@@ -26,8 +26,11 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     loss = model_spec['loss']
     if "train_op_c" in model_spec:
         train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_c']])
+    elif "train_op_trace_ratio" in model_spec:
+        train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_trace_ratio']])
     else:
         train_op = model_spec['train_op']
+
     update_metrics = model_spec['update_metrics']
     metrics = model_spec['metrics']
     summary_op = model_spec['summary_op']
@@ -44,8 +47,13 @@ def train_sess(sess, model_spec, num_steps, writer, params):
             _, _, loss_val, summ, global_step_val = sess.run([train_op, update_metrics, loss,
                                                               summary_op, global_step],
                                                              feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate, model_spec['gamma_placeholder']: params.gamma,
-                                                                        model_spec['lambda_r_placeholder']: params.lambda_r, model_spec['lambda_c_placeholder']: params.lambda_c, model_spec['lambda_d_placeholder']: params.lambda_d})
+                                                                        model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                                                                        model_spec['gamma_placeholder']: params.gamma,
+                                                                        model_spec['lambda_r_placeholder']: params.lambda_r,
+                                                                        model_spec['lambda_c_placeholder']: params.lambda_c,
+                                                                        model_spec['lambda_d_placeholder']: params.lambda_d,
+                                                                        model_spec['lambda_b_placeholder']: params.lambda_b,
+                                                                        model_spec['lambda_w_placeholder']: params.lambda_w})
             # Write summaries for tensorboard
             writer.add_summary(summ, global_step_val)
 
@@ -54,8 +62,13 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         else:
             _, _, loss_val = sess.run([train_op, update_metrics, loss],
                                       feed_dict={model_spec['sigma_placeholder']: params.sigma,
-                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate, model_spec['gamma_placeholder']: params.gamma,
-                                                                        model_spec['lambda_r_placeholder']: params.lambda_r, model_spec['lambda_c_placeholder']: params.lambda_c, model_spec['lambda_d_placeholder']: params.lambda_d})
+                                                 model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                                                 model_spec['gamma_placeholder']: params.gamma,
+                                                 model_spec['lambda_r_placeholder']: params.lambda_r,
+                                                 model_spec['lambda_c_placeholder']: params.lambda_c,
+                                                 model_spec['lambda_d_placeholder']: params.lambda_d,
+                                                 model_spec['lambda_b_placeholder']: params.lambda_b,
+                                                 model_spec['lambda_w_placeholder']: params.lambda_w})
 
     # If we have a model with cluster centers in training, update them on training set
     if 'cluster_center_update' in model_spec:
@@ -92,6 +105,7 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
     with tf.Session(config=config) as sess:
         # Initialize model variables
+        sess.run([train_model_spec['iterator_init_op'], eval_model_spec['iterator_init_op']])
         sess.run([train_model_spec['variable_init_op'], eval_model_spec['variable_init_op']])
 
         # Reload weights from directory if specified
@@ -115,14 +129,26 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
-            if epoch < 10:
-                params.lambda_r = 0.1
-                params.lamdba_c = 0
-                params.lambda_d = 1.0
-            elif epoch > 9:
-                params.lambda_r = 0.1
-                params.lambda_c = -1.0
-                params.lambda_d = 1.0
+            if epoch > 10:
+                params.lambda_r = 0#0.001
+            # if epoch < 5:
+            #     params.lambda_r = 0.1
+            #     params.lamdba_c = 0
+            #     params.lambda_d = 1.0
+            #     params.lambda_b = 0.0
+            #     params.lambda_w = 0.0
+            # elif 4 < epoch < 8:
+            #     params.lambda_r = 0.1
+            #     params.lambda_c = -1.0
+            #     params.lambda_d = 1.0
+            #     params.lambda_b = 0.0
+            #     params.lambda_w = 0.0
+            # elif 7 < epoch:
+            #     params.lambda_r = 0.1
+            #     params.lambda_c = -1.0
+            #     params.lambda_d = 0.0
+            #     params.lambda_b = 1.0
+            #     params.lambda_w = -0.3
                 #params.sigma = np.minimum(1.0, np.multiply(0.1, epoch))
                 #params.gamma = np.minimum(5.0, np.multiply(1.0, (epoch-10.0)))
 

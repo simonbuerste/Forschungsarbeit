@@ -53,8 +53,13 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
     for i in range(num_steps):
         _, idx_batch, labels_batch, img = sess.run(
             [update_metrics, model_spec['cluster_idx'], model_spec["labels"],
-             model_spec["sample"]], feed_dict={model_spec['sigma_placeholder']: params.sigma, model_spec['gamma_placeholder']: params.gamma,
-                                                                        model_spec['lambda_r_placeholder']: params.lambda_r, model_spec['lambda_c_placeholder']: params.lambda_c, model_spec['lambda_d_placeholder']: params.lambda_d})
+             model_spec["sample"]], feed_dict={model_spec['sigma_placeholder']: params.sigma,
+                                               model_spec['gamma_placeholder']: params.gamma,
+                                               model_spec['lambda_r_placeholder']: params.lambda_r,
+                                               model_spec['lambda_c_placeholder']: params.lambda_c,
+                                               model_spec['lambda_d_placeholder']: params.lambda_d,
+                                               model_spec['lambda_b_placeholder']: params.lambda_b,
+                                               model_spec['lambda_w_placeholder']: params.lambda_w})
              
         ypred = np.append(ypred, idx_batch)
         labels = np.append(labels, labels_batch)
