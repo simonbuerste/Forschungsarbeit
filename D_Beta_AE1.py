@@ -123,10 +123,11 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     anchor_val = tf.batch_gather(C_ij, anchor_idx)
 
     batch_size = (tf.shape(sampled)[-1])
-    alpha = tf.constant(0.75)
+    sum_anchor_values = tf.size(anchor_idx)
+    alpha = tf.constant(0.5)
 
-    L_d = tf.cast((1/(batch_size**2 - sum_anchor)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij), [0, 1])-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
-    x = (1.0 - alpha) / tf.cast(sum_anchor, tf.float32)
+    L_d = tf.cast((1/(batch_size**2 - sum_anchor_values)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij))-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
+    x = (1.0 - alpha) / tf.cast(sum_anchor_values, tf.float32)
     y = tf.cast(tf.reduce_sum(tf.abs(anchor_val)), tf.float32)
     L_d = L_d - x*y
 
@@ -140,17 +141,18 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     for i in range(params.k):
         idx_i = tf.cast(tf.where(tf.argmax(cluster_center_sim, axis=1) == i), tf.int32)
-        C_i = tf.gather(C_ij, idx_i)
+        C_i = tf.gather_nd(C_ij, idx_i)
         for j in range(params.k):
             idx_j = tf.cast(tf.where(tf.argmax(cluster_center_sim, axis=1) == j), tf.int32)
-            cluster_ij = tf.gather(C_i, idx_j)
+            cluster_ij = tf.gather(C_i, idx_j, axis=1)
 
-            kardinality_cluster_i = tf.cast(tf.shape(idx_i)[-1], tf.float32)
-            kardinality_cluster_j = tf.cast(tf.shape(idx_j)[-1], tf.float32)
+            kardinality_cluster_i = tf.size(idx_i, out_type=tf.float32)
+            kardinality_cluster_j = tf.size(idx_j, out_type=tf.float32)
+            denum = kardinality_cluster_i*kardinality_cluster_j
             if i == j:
-                L_w_matrix[i].assign(kardinality_cluster_i**-2)*tf.reduce_sum(cluster_ij)
+                L_w_matrix[i].assign((1/denum)*tf.reduce_sum(cluster_ij))
             else:
-                L_kl_matrix[i, j].assign(1/(kardinality_cluster_i*kardinality_cluster_j))*tf.reduce_sum(tf.abs(cluster_ij))
+                L_kl_matrix[i, j].assign((1/denum)*tf.reduce_sum(tf.abs(cluster_ij)))
 
     L_w = tf.reduce_sum(L_w_matrix)
     L_b = tf.reduce_max(L_kl_matrix)
@@ -161,7 +163,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     lambda_b = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
     lambda_w = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
     # Define the Loss
-    loss = tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w)
+    loss = tf.abs(tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w))
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -183,7 +185,10 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     with tf.variable_scope("b_ae_metrics"):
         metrics = {
             'loss': tf.metrics.mean(loss),
-            #'cluster_center_loss': tf.metrics.mean(sum_cluster_dist),
+            'dsicrimintaive_loss': tf.metrics.mean(L_d),
+            'clustering_loss': tf.metrics.mean(L_c),
+            'between_cluster_loss': tf.metrics.mean(L_b),
+            'within_cluster_loss': tf.metrics.mean(L_w),
             'neg_log_likelihood': tf.metrics.mean(loss_likelihood)
         }
 
@@ -196,6 +201,10 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     # Summaries for training
     tf.summary.scalar('loss', loss)
+    tf.summary.scalar('dsicrimintaive_loss', L_d)
+    tf.summary.scalar('clustering_loss', L_c)
+    tf.summary.scalar('between_cluster_loss', L_b)
+    tf.summary.scalar('within_cluster_loss', L_w)
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
     #tf.summary.scalar('cluster_center_loss', sum_cluster_dist)
     # Summary for reconstruction and original image with max_outpus images
