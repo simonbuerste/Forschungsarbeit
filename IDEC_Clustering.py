@@ -9,7 +9,6 @@ from tensorflow.contrib.factorization import KMeansClustering
 from utils import save_dict_to_json
 from utils import Params
 from utils import visualize_embeddings
-from utils import visualize_umap
 
 from metrics import cluster_accuracy
 from metrics import normalized_mutual_information
@@ -184,4 +183,3 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
         # Visualize embeddings if desired
         if params.visualize == 1:
             visualize_embeddings(sess, log_dir, writer, params)
-            visualize_umap(sess, log_dir, writer, params)

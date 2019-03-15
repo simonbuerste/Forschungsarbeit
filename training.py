@@ -9,7 +9,6 @@ from tensorflow.contrib.factorization import KMeansClustering
 from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
-from utils import visualize_umap
 from utils import Params
 
 
@@ -129,22 +128,22 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
-            if epoch > 10:
-                params.lambda_r = 0#0.001
-            # if epoch < 5:
-            #     params.lambda_r = 0.1
+            if epoch > 5:
+                params.lambda_r = 0.001
+            # if epoch < 15:
+            #     params.lambda_r = 0.001
             #     params.lamdba_c = 0
-            #     params.lambda_d = 1.0
+            #     params.lambda_d = 100.0
             #     params.lambda_b = 0.0
             #     params.lambda_w = 0.0
-            # elif 4 < epoch < 8:
-            #     params.lambda_r = 0.1
+            # elif 14 < epoch < 45:
+            #     params.lambda_r = 0.001
             #     params.lambda_c = -1.0
-            #     params.lambda_d = 1.0
+            #     params.lambda_d = 5.0
             #     params.lambda_b = 0.0
             #     params.lambda_w = 0.0
-            # elif 7 < epoch:
-            #     params.lambda_r = 0.1
+            # elif 44 < epoch:
+            #     params.lambda_r = 0.001
             #     params.lambda_c = -1.0
             #     params.lambda_d = 0.0
             #     params.lambda_b = 1.0
@@ -214,4 +213,3 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
         if params.visualize == 1:
             visualize_embeddings(sess, log_dir, train_writer, params)
-            visualize_umap(sess, log_dir, train_writer, params)

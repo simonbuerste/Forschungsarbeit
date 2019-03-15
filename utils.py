@@ -86,9 +86,9 @@ def save_dict_to_json(d, json_path):
 
 
 def visualize_embeddings(sess, log_dir, writer, params):
-
     # Get latentspace data and labels from saved files
     sub_latentspace = []
+    sub_latentspace_umap = []
     sub_metadata = []
     for i in range(params.num_epochs):
         if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
@@ -98,6 +98,7 @@ def visualize_embeddings(sess, log_dir, writer, params):
             latentspace = np.loadtxt(img_latentspace)
             features = tf.Variable(latentspace, name=('latentspace' + str(i+1)))
             sub_latentspace.append(features)
+            sub_latentspace_umap.append(latentspace)
             sub_metadata.append(metadata)
 
     # Initialize a Saver and variables for embeddings
@@ -111,36 +112,15 @@ def visualize_embeddings(sess, log_dir, writer, params):
     list_index = 0
     for i in range(params.num_epochs):
         if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
+            # Prepare embeddings to projector (t-SNE, PCA)
             embedding = config.embeddings.add()
             embedding.tensor_name = sub_latentspace[list_index].name
             embedding.metadata_path = sub_metadata[list_index]
-            list_index += 1
 
-    # Saves a config file that TensorBoard will read during startup.
-    projector.visualize_embeddings(writer, config)
-
-
-def visualize_umap(sess, log_dir, writer, params):
-
-    # Get latentspace data and labels from saved files
-    sub_latentspace = []
-    sub_metadata = []
-    for i in range(params.num_epochs):
-        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
-            metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
-            img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
-
-            latentspace = np.loadtxt(img_latentspace)
-            sub_latentspace.append(latentspace)
-            sub_metadata.append(metadata)
-
-    list_index = 0
-    for i in range(params.num_epochs):
-        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
             # Fit UMAP to latentspace data
             reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
-            reducer.fit(sub_latentspace[list_index])
-            embedding = reducer.transform(sub_latentspace[list_index])
+            reducer.fit(sub_latentspace_umap[list_index])
+            embedding = reducer.transform(sub_latentspace_umap[list_index])
 
             # Read Labels from txt
             labels = np.genfromtxt(fname=sub_metadata[list_index], delimiter="\t")
@@ -149,7 +129,7 @@ def visualize_umap(sess, log_dir, writer, params):
             f = plt.figure(list_index)
             ax = f.add_subplot(111)
             ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
-            ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i+1)), fontsize=14)
+            ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i + 1)), fontsize=14)
 
             # Create a Buffer and write PNG Image to it
             reliability_image = io.BytesIO()
@@ -159,5 +139,11 @@ def visualize_umap(sess, log_dir, writer, params):
             reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
             summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
             writer.add_summary(summary)
-            
+
+            # Close figure
+            plt.close(f)
+
             list_index += 1
+
+    # Saves a config file that TensorBoard will read during startup.
+    projector.visualize_embeddings(writer, config)
