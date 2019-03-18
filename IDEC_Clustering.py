@@ -151,7 +151,13 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                                                                       summary_op, global_step],
                                                                      feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
                                                                                 train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
-                                                                                train_model_spec['target_prob']: target_distribution[i]})
+                                                                                train_model_spec['target_prob']: target_distribution[i],
+                                                                                train_model_spec['gamma_placeholder']: params.gamma,
+                                                                                train_model_spec['lambda_r_placeholder']: params.lambda_r,
+                                                                                train_model_spec['lambda_c_placeholder']: params.lambda_c,
+                                                                                train_model_spec['lambda_d_placeholder']: params.lambda_d,
+                                                                                train_model_spec['lambda_b_placeholder']: params.lambda_b,
+                                                                                train_model_spec['lambda_w_placeholder']: params.lambda_w})
                     # Write summaries for tensorboard
                     writer.add_summary(summ, global_step_val)
 

@@ -39,7 +39,7 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
 
         cluster_idx = tf.argmax(q, axis=1)
 
-        reconstruction_loss = latent_model_spec['loss']# tf.reduce_sum(tf.squared_difference(latent_model_spec['img'], latent_model_spec['reconstructions']), axis=[0, 1, 2, 3])
+        reconstruction_loss = tf.norm(inputs["img"] - latent_model_spec["reconstructions"])  # latent_model_spec['loss']
         loss = tf.reduce_mean(reconstruction_loss + params.gamma*kl_loss)
 
         optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
