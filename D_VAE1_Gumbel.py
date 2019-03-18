@@ -64,20 +64,18 @@ def selfattentionlayer(x, iteration, sigma):
 def encoder(encoder_input, is_training, params):
     x = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print('-------Encoder-------')
-    sigma = tf.placeholder(tf.float32, [], name="sigma_ratio")
     for k in range(4):
         print(x.get_shape())
-        x = tf.layers.conv2d(x, filters=16 * (2 ** k), kernel_size=3, strides=1, padding='same',
+        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=4, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
-        if k < 3:
-            x = tf.layers.max_pooling2d(x, 2, 2)
-        # if k == 3:
-        x = selfattentionlayer(x, k, sigma)
+
+        #if k < 3:
+        x = tf.layers.max_pooling2d(x, 2, 2)
 
     # Last layer average pooling
-    x = tf.layers.average_pooling2d(x, 4, 4)
+    #x = tf.layers.average_pooling2d(x, 4, 4)
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
@@ -100,27 +98,29 @@ def encoder(encoder_input, is_training, params):
 def decoder(sampled_z, is_training, params):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
-    reshaped_dim = [-1, 2, 2, params.n_latent]
-    inputs_decoder = int(2 * 2 * params.n_latent)
+
+    reshaped_dim = [-1, 2, 2, 16*(2**3)]
+    inputs_decoder = int(2*2*16*(2**3))
+    #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
+    #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
                         kernel_initializer=tf.contrib.layers.xavier_initializer())
     print(x.get_shape())
     x = tf.reshape(x, reshaped_dim)
     print(x.get_shape())
-    for k in range(4):
-        x = tf.layers.conv2d_transpose(x, filters=max(16, 16 * (2 ** (3 - k - 1))), kernel_size=4, strides=2,
-                                       padding='same',
+
+    for k in range(3):
+        #x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
+        #x = tf.layers.batch_normalization(x, training=is_training)
+        x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
-        # if k == 1:
-        #    x = selfattentionlayer(x, k)
         print(x.get_shape())
 
-    reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
-                                          kernel_initializer=tf.contrib.layers.xavier_initializer())  # (activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
-
-    # reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
+    reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=3, strides=2, padding='same',
+                                          kernel_initializer=tf.contrib.layers.xavier_initializer())
+    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
     #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
 
     print(reconstructed_mean.get_shape())

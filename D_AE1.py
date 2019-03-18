@@ -55,24 +55,20 @@ def encoder(encoder_input, is_training, params, sigma):
     print('-------Encoder-------')
     for k in range(4):
         print(x.get_shape())
-        attn = selfattentionlayer(x, 'encoder_%d' % k, sigma)
-        attn_norm = tf.layers.batch_normalization(attn, training=is_training)
-        x = tf.layers.conv2d(attn_norm, filters=16*(2**k), kernel_size=3, strides=1, padding='same', kernel_initializer=tf.contrib.layers.xavier_initializer())
+        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=4, strides=1, padding='same',
+                             kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
-        if k < 3:
-            x = tf.layers.max_pooling2d(x, 2, 2)
 
-    x = selfattentionlayer(x, 'encoder_%d' % (k+1), sigma)
-    x = tf.layers.batch_normalization(x, training=is_training)
+        #if k < 3:
+        x = tf.layers.max_pooling2d(x, 2, 2)
+
     # Last layer average pooling
-    x = tf.layers.average_pooling2d(x, 4, 4)
+    #x = tf.layers.average_pooling2d(x, 4, 4)
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
 
-    #x = selfattentionlayer(x, 'encoder_%d' % (k+2), sigma)
-    #x = tf.layers.batch_normalization(x, training=is_training)
     z = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
     #z = tf.divide(z,tf.norm(z)+1e-10) # Normalizing l2 norm
     print(z.get_shape())
@@ -86,8 +82,8 @@ def decoder(sampled_z, is_training, params, sigma):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
 
-    reshaped_dim = [-1, 2, 2, params.n_latent]
-    inputs_decoder = int(2*2*params.n_latent)
+    reshaped_dim = [-1, 2, 2, 16*(2**3)]
+    inputs_decoder = int(2*2*16*(2**3))
     #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
     #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
@@ -96,16 +92,17 @@ def decoder(sampled_z, is_training, params, sigma):
     x = tf.reshape(x, reshaped_dim)
     print(x.get_shape())
 
-    for k in range(4):
-        x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
-        x = tf.layers.batch_normalization(x, training=is_training)
+    for k in range(3):
+        # if k == 0:
+        #     x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
+        #     x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
         print(x.get_shape())
 
-    reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
+    reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=3, strides=2, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer())
     #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
     #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -123,7 +120,10 @@ def build_model(inputs, is_training, params):
     sampled = encoder(original_img, is_training, params, sigma)
     reconstructed_mean = decoder(sampled, is_training, params, sigma)
 
-    loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
+    dyn_rage = tf.reduce_max(original_img) - tf.reduce_min(original_img)
+    ssim_loss = tf.reduce_mean(1 - (tf.image.ssim(original_img, tf.sigmoid(reconstructed_mean), max_val=dyn_rage)+1.0)/2.0)  # bring it to 0-1 format
+
+    loss_square = 0.1*ssim_loss + tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
 
     return loss_square, sampled, reconstructed_mean, sigma
 
@@ -204,6 +204,11 @@ def ae_model_fn(mode, inputs, params, reuse=False):
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
     model_spec['gamma_placeholder'] = tf.placeholder(tf.float32, [], name="gamma")
+    model_spec['lambda_r_placeholder'] = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
+    model_spec['lambda_c_placeholder'] = tf.placeholder(tf.float32, shape=[], name='center_sim_regularization')
+    model_spec['lambda_d_placeholder'] = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
+    model_spec['lambda_b_placeholder'] = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
+    model_spec['lambda_w_placeholder'] = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
 
     if mode == 'train':
         model_spec['train_op'] = train_op

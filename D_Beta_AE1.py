@@ -11,20 +11,18 @@ def lrelu(x, alpha=0.2):
 def encoder(encoder_input, is_training, params):
     x = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print('-------Encoder-------')
-    layer_features = []
     for k in range(4):
         print(x.get_shape())
-        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=3, strides=1, padding='same',
+        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=4, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
 
-        if k < 3:
-            x = tf.layers.max_pooling2d(x, 2, 2)
-            layer_features.append(x)
+        #if k < 3:
+        x = tf.layers.max_pooling2d(x, 2, 2)
 
     # Last layer average pooling
-    x = tf.layers.average_pooling2d(x, 4, 4)
+    #x = tf.layers.average_pooling2d(x, 4, 4)
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
@@ -42,29 +40,29 @@ def decoder(sampled_z, is_training, params):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
 
-    reshaped_dim = [-1, 2, 2, params.n_latent]
-    inputs_decoder = int(2*2*params.n_latent)
+    reshaped_dim = [-1, 2, 2, 16*(2**3)]
+    inputs_decoder = int(2*2*16*(2**3))
+    #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
+    #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
                         kernel_initializer=tf.contrib.layers.xavier_initializer())
     print(x.get_shape())
     x = tf.reshape(x, reshaped_dim)
     print(x.get_shape())
 
-    layer_features = []
-    for k in range(4):
+    for k in range(3):
+        #x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
+        #x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
         print(x.get_shape())
-        if k < 3:
-            layer_features.append(x)
 
-    reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
-                                          kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
-    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2,
-    #                                                padding='same',
-    #                                                kernel_initializer=tf.contrib.layers.xavier_initializer())
+    reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=3, strides=2, padding='same',
+                                          kernel_initializer=tf.contrib.layers.xavier_initializer())
+    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
+    #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
 
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
@@ -78,8 +76,9 @@ def build_model(inputs, is_training, params):
     sampled = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
 
-    #loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
-    loss_square = tf.norm(original_img - tf.sigmoid(reconstructed_mean))
+    #dyn_rage = tf.reduce_max(original_img) - tf.reduce_min(original_img)
+    #loss_square = tf.reduce_mean(1 - (tf.image.ssim(original_img, tf.sigmoid(reconstructed_mean), max_val=dyn_rage)+1.0)/2.0)  # bring it to 0-1 format
+    loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
 
     return loss_square, sampled, reconstructed_mean
 
@@ -119,10 +118,10 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     z = tf.reshape(inputs["img"], shape=[-1, params.resize_height, params.resize_width, params.channels])
     z = z/tf.norm(z, ord=1)
-    #z_flat = tf.contrib.layers.flatten(z)
-    #sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
-    dyn_rage = tf.reduce_max(z) - tf.reduce_min(z)
-    sim_original_img = tf.image.ssim(z, z, max_val=dyn_rage)
+    z_flat = tf.contrib.layers.flatten(z)
+    sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
+    #dyn_rage = tf.reduce_max(z) - tf.reduce_min(z)
+    #sim_original_img = tf.image.ssim(z, z, max_val=dyn_rage)
     sum_anchor = (tf.shape(sampled)[-1])//params.k
     _, anchor_idx = tf.nn.top_k(sim_original_img, k=sum_anchor)
 
@@ -132,7 +131,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     batch_size = tf.shape(sampled)[-1]
     sum_anchor_values = tf.size(anchor_idx)
-    alpha = tf.constant(0.0)
+    alpha = tf.constant(0.5)
 
     L_d = tf.cast((1/(batch_size**2 - sum_anchor_values)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij))-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
     x = (1.0 - alpha) / tf.cast(sum_anchor_values, tf.float32)
@@ -144,7 +143,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     cluster_centers_normed = cluster_centers/tf.norm(cluster_centers, ord=1)
     cluster_center_sim = tf.matmul(z, cluster_centers_normed, transpose_b=True)
     assignment = tf.stop_gradient(tf.one_hot(tf.argmax(cluster_center_sim, axis=1), params.k))
-    L_c = tf.reduce_sum(assignment*cluster_center_sim)
+    L_c = tf.reduce_mean(assignment*cluster_center_sim)
     L_r = loss_likelihood
 
     for i in range(params.k):
@@ -162,7 +161,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
             else:
                 L_kl_matrix[i, j].assign((1/denum)*tf.reduce_sum(tf.abs(cluster_ij)))
 
-    L_w = tf.reduce_sum(L_w_matrix)
+    L_w = tf.reduce_mean(L_w_matrix)
     L_b = tf.reduce_max(L_kl_matrix)
 
     lambda_r = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
@@ -171,7 +170,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     lambda_b = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
     lambda_w = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
     # Define the Loss
-    loss = tf.abs(tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w))
+    loss = tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -243,7 +242,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     if mode == 'train':
         #train_op = tf.group(*[train_op, kmeans_train_op])
         model_spec['train_op'] = train_op
-        model_spec['train_op_c'] = train_op_c
+        model_spec['cluster_center_update'] = train_op_c
         model_spec['samples'] = sampled
     elif mode == 'cluster':
         model_spec['sample'] = sampled
