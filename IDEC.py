@@ -25,7 +25,7 @@ def build_idec_model(inputs, params):
     update_target_distr = target_distr(q)
 
     kl_loss = tf.multiply(p, tf.log(q / p))
-    kl_loss = -tf.reduce_sum(tf.reduce_sum(kl_loss, axis=1))
+    kl_loss = -tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
 
     return kl_loss, q, p, update_target_distr, cluster_centers
 
@@ -39,8 +39,11 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
 
         cluster_idx = tf.argmax(q, axis=1)
 
-        reconstruction_loss = tf.norm(inputs["img"] - latent_model_spec["reconstructions"])  # latent_model_spec['loss']
-        loss = tf.reduce_mean(reconstruction_loss + params.gamma*kl_loss)
+        reconstruction_loss = tf.losses.mean_squared_error(labels=inputs["img"], predictions=latent_model_spec["reconstructions"])
+        #reconstruction_loss = tf.norm(inputs["img"] - latent_model_spec["reconstructions"])  # latent_model_spec['loss']
+
+        gamma = tf.placeholder(tf.float32, [], name="gamma")
+        loss = tf.reduce_mean(reconstruction_loss + gamma*kl_loss)
 
         optimizer = tf.train.AdamOptimizer(params.initial_training_rate)
         global_step = tf.train.get_or_create_global_step()
@@ -86,5 +89,6 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
     model_spec['loss'] = loss
     model_spec['prob'] = q
     model_spec['target_prob'] = p
+    model_spec['gamma_placeholder'] = gamma
 
     return model_spec

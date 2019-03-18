@@ -85,12 +85,12 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                 y_pred = np.array([])
                 labels = np.array([])
                 for i in range(num_steps):
-                    target_distribution[i], y_pred_batch, labels_batch, img = sess.run([train_model_spec['train_op_distribution'], train_model_spec['cluster_idx'], train_model_spec['labels'], train_model_spec["sample"]],
+                    target_distribution[i], y_pred_batch, labels_batch, img, global_step_val = sess.run([train_model_spec['train_op_distribution'], train_model_spec['cluster_idx'], train_model_spec['labels'], train_model_spec["sample"], global_step],
                                               feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
                                                          train_model_spec['learning_rate_placeholder']: params.initial_training_rate})
                     y_pred = np.append(y_pred, y_pred_batch)
                     labels = np.append(labels, labels_batch)
-                            # Input set for TensorBoard visualization
+                    # Input set for TensorBoard visualization
                     if params.visualize == 1:
                         if i == 0:
                             embedded_data = img
@@ -106,13 +106,11 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                 if params.visualize == 1:
                     log_dir = writer.get_logdir()
                     metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
-                    img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
-                    np.savetxt(img_latentspace, embedded_data)
-    
                     # def save_metadata(file):
                     with open(metadata, 'w') as metadata_file:
                         for c in embedded_labels:
                             metadata_file.write('{}\n'.format(c))
+                    visualize_embeddings(sess, log_dir, embedded_data, (epoch + 1), writer, params)
                         
                 y_pred = y_pred.astype(int)
                 labels = labels.astype(int)
@@ -138,7 +136,13 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                 metrics_eval['Accuracy'] = accuracy
                 metrics_eval['Normalized Mutual Information'] = nmi
                 metrics_eval['Adjusted Rand Index'] = ari
+
+                for tag, val in metrics_eval.items():
+                    summ = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=val)])
+                    writer.add_summary(summ, global_step_val)
+
                 print("Cluster_acc at Epoch ", epoch, ": %.2f" % metrics_eval['Accuracy'])
+
 
             # Load the training dataset into the pipeline and initialize the metrics local variables after every epoch
             sess.run(train_model_spec['iterator_init_op'])
@@ -166,8 +170,14 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
                     # print("Step", epoch + 1, "finished -> you are getting closer: %.2f" % ((epoch + 1)/(params.num_epochs*num_steps)), "% done")
                 else:
                     _, _ = sess.run([train_op, update_metrics], feed_dict={train_model_spec['sigma_placeholder']: params.sigma,
-                                                         train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
-                                                         train_model_spec['target_prob']: target_distribution[i]})
+                                                                           train_model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                                                                           train_model_spec['target_prob']: target_distribution[i],
+                                                                           train_model_spec['gamma_placeholder']: params.gamma,
+                                                                           train_model_spec['lambda_r_placeholder']: params.lambda_r,
+                                                                           train_model_spec['lambda_c_placeholder']: params.lambda_c,
+                                                                           train_model_spec['lambda_d_placeholder']: params.lambda_d,
+                                                                           train_model_spec['lambda_b_placeholder']: params.lambda_b,
+                                                                           train_model_spec['lambda_w_placeholder']: params.lambda_w})
 
             metrics_values = {k: v[0] for k, v in metrics.items()}
             metrics_val = sess.run(metrics_values)
@@ -185,7 +195,3 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
             last_json_path = os.path.join(model_dir, "metrics_eval_last_weights.json")
 
             save_dict_to_json(metrics_eval, last_json_path)
-        
-        # Visualize embeddings if desired
-        if params.visualize == 1:
-            visualize_embeddings(sess, log_dir, writer, params)
