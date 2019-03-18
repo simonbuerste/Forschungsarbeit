@@ -37,7 +37,7 @@ model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models
 data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
 
 # restore_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models', 'AE_MNIST_kmeans_2019-03-07_14-50', 'best_weights')
-restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/AE_MNIST_kmeans_2019-03-01_13-18/best_weights'
+restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/b_AE_MNIST_kmeans_2019-03-15_17-16/best_weights'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default=model_dir,
@@ -48,9 +48,9 @@ parser.add_argument('--restore_from', default='best_weights',
                     help="Subdirectory of model dir or file containing the weights")
 parser.add_argument('--gpu', default=0,
                     help="Choose GPU on which the program should run")
-parser.add_argument('--latent_model', default='AE',
+parser.add_argument('--latent_model', default='b_AE',
                     help="Choose Model which is used for creating a latent space")
-parser.add_argument('--cluster_model', default='kmeans',
+parser.add_argument('--cluster_model', default='gmm',
                     help="Choose Model which is used for clustering")
 parser.add_argument('--dataset', default='MNIST',
                     help="Choose dataset which should be used")
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     elif args.cluster_model == 'argmax':
         # Input for Clustering is Output of Encoder
         cluster_inputs["samples"] = cluster_model_spec['sample']
-        cluster_model_spec = argmax_model_fn(cluster_inputs, params)
+        cluster_model_spec = argmax_model_fn(cluster_inputs, cluster_model_spec, params)
         # Train the model
         train_and_evaluate(train_model_spec, cluster_model_spec, model_dir, params, config)  # add ", restore_dir" if a restore Dir
     elif args.cluster_model == 'IDEC':

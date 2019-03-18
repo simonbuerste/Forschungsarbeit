@@ -128,20 +128,20 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
-            if epoch > 5:
+            # if epoch > 5:
+            #     params.lambda_r = 0.001
+            if epoch < 10:
                 params.lambda_r = 0.001
-            # if epoch < 15:
-            #     params.lambda_r = 0.001
-            #     params.lamdba_c = 0
-            #     params.lambda_d = 100.0
-            #     params.lambda_b = 0.0
-            #     params.lambda_w = 0.0
-            # elif 14 < epoch < 45:
-            #     params.lambda_r = 0.001
-            #     params.lambda_c = -1.0
-            #     params.lambda_d = 5.0
-            #     params.lambda_b = 0.0
-            #     params.lambda_w = 0.0
+                params.lamdba_c = 0
+                params.lambda_d = 50.0
+                params.lambda_b = 0.0
+                params.lambda_w = 0.0
+            elif 9 < epoch < 45:
+                params.lambda_r = 0.001
+                params.lambda_c = -5.0
+                params.lambda_d = 10.0
+                params.lambda_b = 0.0
+                params.lambda_w = 0.0
             # elif 44 < epoch:
             #     params.lambda_r = 0.001
             #     params.lambda_c = -1.0
@@ -154,17 +154,17 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
 
             # If we are using clusters in the train model spec, initialize the cluster centers
-            if 'cluster_centers' in train_model_spec and epoch == 9:
-                # Initialization of centers by running kmeans
-                cluster_centers = train_model_spec['cluster_centers']
-                kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=True, distance_metric='cosine')
-                for i in range(20):
-                    sess.run(train_model_spec['iterator_init_op'])
-                    kmeans_model.train(
-                        lambda: sess.run(train_model_spec['samples'],
-                                         feed_dict={train_model_spec['sigma_placeholder']:
-                                                        params.sigma}), steps=num_steps)
-                sess.run(cluster_centers.assign(kmeans_model.cluster_centers()))
+            # if 'cluster_centers' in train_model_spec and epoch == 9:
+            #     # Initialization of centers by running kmeans
+            #     cluster_centers = train_model_spec['cluster_centers']
+            #     kmeans_model = KMeansClustering(num_clusters=params.k, use_mini_batch=True, distance_metric='cosine')
+            #     for i in range(20):
+            #         sess.run(train_model_spec['iterator_init_op'])
+            #         kmeans_model.train(
+            #             lambda: sess.run(train_model_spec['samples'],
+            #                              feed_dict={train_model_spec['sigma_placeholder']:
+            #                                             params.sigma}), steps=num_steps)
+            #     sess.run(cluster_centers.assign(kmeans_model.cluster_centers()))
 
             # Run one epoch
             metrics_train = train_sess(sess, train_model_spec, num_steps, train_writer, params)
