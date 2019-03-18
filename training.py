@@ -25,8 +25,8 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     loss = model_spec['loss']
     if "train_op_c" in model_spec:
         train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_c']])
-    elif "train_op_trace_ratio" in model_spec:
-        train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_trace_ratio']])
+    # elif "train_op_trace_ratio" in model_spec:
+    #     train_op = tf.group(*[model_spec['train_op'], model_spec['train_op_trace_ratio']])
     else:
         train_op = model_spec['train_op']
 
@@ -38,6 +38,26 @@ def train_sess(sess, model_spec, num_steps, writer, params):
     # Load the training dataset into the pipeline and initialize the metrics local variables
     sess.run(model_spec['iterator_init_op'])
     sess.run(model_spec['metrics_init_op'])
+
+    # If we have a model with cluster centers in training, update them on training set
+    if 'cluster_center_update' in model_spec:
+        train_op_additional = model_spec['cluster_center_update']
+        # sess.run(model_spec['cluster_center_reset'])
+        # sess.run(model_spec['cluster_center_init'])
+    elif 'train_op_trace_ratio' in model_spec:
+        train_op_additional = model_spec['train_op_trace_ratio']
+
+    for i in range(num_steps):
+        sess.run(train_op_additional,
+                 feed_dict={model_spec['sigma_placeholder']: params.sigma,
+                            model_spec['learning_rate_placeholder']: params.initial_training_rate,
+                            model_spec['gamma_placeholder']: params.gamma,
+                            model_spec['lambda_r_placeholder']: params.lambda_r,
+                            model_spec['lambda_c_placeholder']: params.lambda_c,
+                            model_spec['lambda_d_placeholder']: params.lambda_d,
+                            model_spec['lambda_b_placeholder']: params.lambda_b,
+                            model_spec['lambda_w_placeholder']: params.lambda_w})
+    sess.run(model_spec['iterator_init_op'])
 
     for i in range(num_steps):
         # Evaluate summaries for tensorboard only once in a while
@@ -68,15 +88,6 @@ def train_sess(sess, model_spec, num_steps, writer, params):
                                                  model_spec['lambda_d_placeholder']: params.lambda_d,
                                                  model_spec['lambda_b_placeholder']: params.lambda_b,
                                                  model_spec['lambda_w_placeholder']: params.lambda_w})
-
-    # If we have a model with cluster centers in training, update them on training set
-    if 'cluster_center_update' in model_spec:
-        #sess.run(model_spec['cluster_center_reset'])
-        sess.run(model_spec['iterator_init_op'])
-        sess.run(model_spec['cluster_center_init'])
-        sess.run(model_spec['iterator_init_op'])
-        for i in range(num_steps):
-            sess.run(model_spec['cluster_center_update'])
 
     metrics_values = {k: v[0] for k, v in metrics.items()}
     metrics_val = sess.run(metrics_values)
@@ -130,20 +141,20 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # if epoch > 5:
             #     params.lambda_r = 0.001
-            if epoch < 10:
-                params.lambda_r = 0.001
+            if epoch == 0:
+                params.lambda_r = 1.0
                 params.lamdba_c = 0
-                params.lambda_d = 50.0
+                params.lambda_d = 1.0
                 params.lambda_b = 0.0
                 params.lambda_w = 0.0
-            elif 9 < epoch < 45:
-                params.lambda_r = 0.001
-                params.lambda_c = -5.0
-                params.lambda_d = 10.0
+            elif epoch == 50:
+                params.lambda_r = 0.1
+                params.lambda_c = -0.5
+                params.lambda_d = 0.5
                 params.lambda_b = 0.0
                 params.lambda_w = 0.0
-            # elif 44 < epoch:
-            #     params.lambda_r = 0.001
+            # elif epoch == 40:
+            #     params.lambda_r = 0.1
             #     params.lambda_c = -1.0
             #     params.lambda_d = 0.0
             #     params.lambda_b = 1.0
@@ -180,16 +191,16 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
                 metrics_eval, embedded_data, embedded_labels = evaluate_sess(sess, eval_model_spec, num_steps,
                                                                              eval_writer, params)
                 print("Cluster_acc after Epoch ", epoch + 1, ": %.2f" % metrics_eval['Accuracy'])
-                log_dir = train_writer.get_logdir()
-                metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
-                img_latentspace = os.path.join(log_dir, ('latentspace' + str(epoch + 1) + '.txt'))
 
-                np.savetxt(img_latentspace, embedded_data)
+                if params.visualize == 1:
+                    log_dir = train_writer.get_logdir()
+                    metadata = os.path.join(log_dir, ('metadata' + str(epoch + 1) + '.tsv'))
 
-                # def save_metadata(file):
-                with open(metadata, 'w') as metadata_file:
-                    for c in embedded_labels:
-                        metadata_file.write('{}\n'.format(c))
+                    # def save_metadata(file): necessary for projectors in tensorboard
+                    with open(metadata, 'w') as metadata_file:
+                        for c in embedded_labels:
+                            metadata_file.write('{}\n'.format(c))
+                    visualize_embeddings(sess, log_dir, embedded_data, (epoch + 1), train_writer, params)
 
             # If best_eval, best_save_path
             metrics_eval['Model_loss'] = metrics_train['loss']
@@ -210,6 +221,3 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             save_dict_to_json(metrics_eval, last_json_path)
 
             print("Epoch", epoch + 1, "finished -> you are getting closer: %.1f" % (((epoch + 1)/params.num_epochs)*100), "% done")
-
-        if params.visualize == 1:
-            visualize_embeddings(sess, log_dir, train_writer, params)

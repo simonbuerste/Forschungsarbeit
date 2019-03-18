@@ -85,65 +85,52 @@ def save_dict_to_json(d, json_path):
         json.dump(d, f, indent=4)
 
 
-def visualize_embeddings(sess, log_dir, writer, params):
+def visualize_embeddings(sess, log_dir, embedded_data, i, writer, params):
+    print("Visualizing data using UMAP and t-SNE Projectors")
     # Get latentspace data and labels from saved files
-    sub_latentspace = []
-    sub_latentspace_umap = []
-    sub_metadata = []
-    for i in range(params.num_epochs):
-        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
-            metadata = os.path.join(log_dir, ('metadata' + str(i + 1) + '.tsv'))
-            img_latentspace = os.path.join(log_dir, ('latentspace' + str(i + 1) + '.txt'))
+    metadata = os.path.join(log_dir, ('metadata' + str(i) + '.tsv'))
 
-            latentspace = np.loadtxt(img_latentspace)
-            features = tf.Variable(latentspace, name=('latentspace' + str(i+1)))
-            sub_latentspace.append(features)
-            sub_latentspace_umap.append(latentspace)
-            sub_metadata.append(metadata)
+    features = tf.Variable(embedded_data, name=('latentspace' + str(i)))
 
     # Initialize a Saver and variables for embeddings
     saver = tf.train.Saver()
-    sess.run(tf.global_variables_initializer())
+    sess.run(tf.initialize_variables([features]))
     save_path = os.path.join(log_dir, 'latentspace')
     saver.save(sess, save_path)
 
     # Create a Projector for Tensorboard visualization
     config = projector.ProjectorConfig()
-    list_index = 0
-    for i in range(params.num_epochs):
-        if i % params.eval_visu_step == 0 or i == params.num_epochs - 1:
-            # Prepare embeddings to projector (t-SNE, PCA)
-            embedding = config.embeddings.add()
-            embedding.tensor_name = sub_latentspace[list_index].name
-            embedding.metadata_path = sub_metadata[list_index]
 
-            # Fit UMAP to latentspace data
-            reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
-            reducer.fit(sub_latentspace_umap[list_index])
-            embedding = reducer.transform(sub_latentspace_umap[list_index])
+    # Prepare embeddings to projector (t-SNE, PCA)
+    embedding = config.embeddings.add()
+    embedding.tensor_name = features.name
+    embedding.metadata_path = metadata
 
-            # Read Labels from txt
-            labels = np.genfromtxt(fname=sub_metadata[list_index], delimiter="\t")
+    # Fit UMAP to latentspace data
+    reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
+    reducer.fit(embedded_data)
+    embedding = reducer.transform(embedded_data)
+    # Read Labels from txt
+    labels = np.genfromtxt(fname=metadata, delimiter="\t")
 
-            # Create Scatter Plot with UMAP-transformed data
-            f = plt.figure(list_index)
-            ax = f.add_subplot(111)
-            ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
-            ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i + 1)), fontsize=14)
+    # Create Scatter Plot with UMAP-transformed data
+    f = plt.figure(i)
+    ax = f.add_subplot(111)
+    ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
+    ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i)), fontsize=14)
 
-            # Create a Buffer and write PNG Image to it
-            reliability_image = io.BytesIO()
-            plt.savefig(reliability_image)
+    # Create a Buffer and write PNG Image to it
+    reliability_image = io.BytesIO()
+    plt.savefig(reliability_image)
 
-            # Write Image to Tensorboard
-            reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
-            summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
-            writer.add_summary(summary)
+    # Write Image to Tensorboard
+    reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
+    summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
+    writer.add_summary(summary)
 
-            # Close figure
-            plt.close(f)
-
-            list_index += 1
+    # Close figure
+    plt.close(f)
 
     # Saves a config file that TensorBoard will read during startup.
     projector.visualize_embeddings(writer, config)
+    print("Visualizing finished")
