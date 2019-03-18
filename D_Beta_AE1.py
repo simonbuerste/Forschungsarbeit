@@ -62,6 +62,10 @@ def decoder(sampled_z, is_training, params):
 
     reconstructed_mean = tf.layers.conv2d(x, filters=params.channels, kernel_size=3, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer()) #(activation=tf.nn.sigmoid)tf.reshape(x, shape=[-1, params.resize_height, params.resize_width, params.channels])
+    #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2,
+    #                                                padding='same',
+    #                                                kernel_initializer=tf.contrib.layers.xavier_initializer())
+
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
     return reconstructed_mean
@@ -112,23 +116,27 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     # Create Similarity matrix of original images
     # Used for discrimintaive Loss
-    z = inputs["img"]/tf.norm(inputs["img"], ord=1)
-    z_flat = tf.contrib.layers.flatten(z)
-    sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
-    sum_anchor = (tf.shape(sampled)[-1])//10  #*0.05 (5%)
+
+    z = tf.reshape(inputs["img"], shape=[-1, params.resize_height, params.resize_width, params.channels])
+    z = z/tf.norm(z, ord=1)
+    #z_flat = tf.contrib.layers.flatten(z)
+    #sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
+    dyn_rage = tf.reduce_max(z) - tf.reduce_min(z)
+    sim_original_img = tf.image.ssim(z, z, max_val=dyn_rage)
+    sum_anchor = (tf.shape(sampled)[-1])//params.k
     _, anchor_idx = tf.nn.top_k(sim_original_img, k=sum_anchor)
 
     z = sampled/tf.norm(sampled, ord=1)
     C_ij = tf.matmul(z, z, transpose_b=True)
-    anchor_val = tf.batch_gather(C_ij, anchor_idx)
+    anchor_val = tf.gather(C_ij, anchor_idx)
 
-    batch_size = (tf.shape(sampled)[-1])
+    batch_size = tf.shape(sampled)[-1]
     sum_anchor_values = tf.size(anchor_idx)
-    alpha = tf.constant(0.5)
+    alpha = tf.constant(0.0)
 
     L_d = tf.cast((1/(batch_size**2 - sum_anchor_values)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij))-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
     x = (1.0 - alpha) / tf.cast(sum_anchor_values, tf.float32)
-    y = tf.cast(tf.reduce_sum(tf.abs(anchor_val)), tf.float32)
+    y = tf.cast(tf.reduce_sum(anchor_val), tf.float32)
     L_d = L_d - x*y
 
     # Sum over all similarities from sample to closest cluster center
@@ -173,11 +181,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
         vars_ae_train_op = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "b_ae_model")
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             train_op = optimizer.minimize(loss, global_step=global_step, var_list=vars_ae_train_op)
-            #constr_optimizer = tf.contrib.constrained_optimization.ConstrainedOptimizer(optimizer)
-            #constr_opt_problem = tf.contrib.constrained_optimization.ConstrainedMinimizationProblem()
-            #constr_opt_problem.objective = -L_c
-            #constr_opt_problem.constraints = (tf.norm(cluster_centers, ord=1)==1)
-            train_op_c = optimizer.minimize(-L_c, global_step=global_step, var_list=[cluster_centers])
+            train_op_c = optimizer.minimize(-L_c, global_step=global_step, var_list=cluster_centers)
 
     # -----------------------------------------------------------
     # METRICS AND SUMMARIES
@@ -185,10 +189,10 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     with tf.variable_scope("b_ae_metrics"):
         metrics = {
             'loss': tf.metrics.mean(loss),
-            'dsicrimintaive_loss': tf.metrics.mean(L_d),
-            'clustering_loss': tf.metrics.mean(L_c),
-            'between_cluster_loss': tf.metrics.mean(L_b),
-            'within_cluster_loss': tf.metrics.mean(L_w),
+            'discriminative_loss': tf.metrics.mean(L_d),
+            'cluster_sample_similarity': tf.metrics.mean(L_c),
+            'between_cluster_similarity': tf.metrics.mean(L_b),
+            'within_cluster_similarity': tf.metrics.mean(L_w),
             'neg_log_likelihood': tf.metrics.mean(loss_likelihood)
         }
 
@@ -201,12 +205,11 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     # Summaries for training
     tf.summary.scalar('loss', loss)
-    tf.summary.scalar('dsicrimintaive_loss', L_d)
-    tf.summary.scalar('clustering_loss', L_c)
-    tf.summary.scalar('between_cluster_loss', L_b)
-    tf.summary.scalar('within_cluster_loss', L_w)
+    tf.summary.scalar('discriminative_loss', L_d)
+    tf.summary.scalar('cluster_sample_similarity', L_c)
+    tf.summary.scalar('between_cluster_similarity', L_b)
+    tf.summary.scalar('within_cluster_similarity', L_w)
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
-    #tf.summary.scalar('cluster_center_loss', sum_cluster_dist)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
     latent_img = tf.reshape(sampled, [-1, 1, params.n_latent, 1])

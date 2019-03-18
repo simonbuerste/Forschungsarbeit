@@ -13,23 +13,30 @@ def gumbel_softmax(logits, temperature, hard=False):
     return y
 
 
-def build_argmax_model(inputs, params):
-    imgs = inputs["samples"]
+def build_argmax_model(inputs, model_spec, params):
+    samples = inputs["samples"]
 
-    tau = tf.constant(1.0)
-    prob = imgs  # gumbel_softmax(imgs, tau)
+    cluster_centers = model_spec['cluster_centers']
+    cluster_centers_normed = cluster_centers/tf.norm(cluster_centers, ord=1)
+    z = samples / tf.norm(samples, ord=1)
+    cluster_center_sim = tf.matmul(z, cluster_centers_normed, transpose_b=True)
+    assignment = tf.argmax(cluster_center_sim, axis=1)
 
-    argmax_op = tf.argmax(prob, axis=1)
+    # tau = tf.constant(1.0)
+    # prob = gumbel_softmax(imgs, tau)
 
-    return argmax_op
+    #prob = imgs
+    #assignment = tf.argmax(prob, axis=1)
+
+    return assignment
 
 
-def argmax_model_fn(inputs, params, reuse=False):
+def argmax_model_fn(inputs, model_spec, params, reuse=False):
 
     with tf.variable_scope('argmax', reuse=reuse):
         # Build up the kMeans Model
         # K-Means Parameters
-        argmax_op = build_argmax_model(inputs, params)
+        argmax_op = build_argmax_model(inputs, model_spec, params)
 
     global_step = tf.train.get_or_create_global_step()
 
