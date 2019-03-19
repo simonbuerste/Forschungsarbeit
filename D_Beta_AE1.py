@@ -170,7 +170,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     lambda_b = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
     lambda_w = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
     # Define the Loss
-    loss = tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w)
+    loss = tf.abs(tf.reduce_mean(lambda_c*L_c+lambda_d*L_d+lambda_r*L_r+lambda_b*L_b+lambda_w*L_w))
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
