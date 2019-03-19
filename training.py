@@ -46,6 +46,8 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         # sess.run(model_spec['cluster_center_init'])
     elif 'train_op_trace_ratio' in model_spec:
         train_op_additional = model_spec['train_op_trace_ratio']
+    else:
+        train_op_additional = tf.no_op()
 
     for i in range(num_steps):
         sess.run(train_op_additional,
