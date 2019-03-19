@@ -251,6 +251,8 @@
 	% *****************************************************************
 	% -------------------> start writing here <------------------------
 \chapter{Introduction}
+The field of unsupervised learning is a very fundamental one in machine learning. Since nearly every novel product is connected, a tremendous amount of data is generated. Neither every single data can be labelled, nor is it possible or necessary to save the whole original data, since most probably not everything is useful. Therefore, in the area of unsupervised learning, tasks like dimensionality reduction (sometimes also called representation learning) or clustering can help. Those two tasks are directly linked, since state-of-the art clustering methods use first a dimensionality reduction to one the one hand reduce the feature space but also extract relevant features out of the data. In most of these works a deep auto-encoder (or a variation of it) is trained to extract relevant features. Although in those works often a very good performance (in this case clustering accuracy) and generalizability is claimed, the experiments given in the publications are limited. Therefore different methods for clustering data are implemented and compared in this work inside a programmed framework within Tensorflow to allow a fair comparison of those methods. Therefore some state-of-the-art algorithms are investigated, implemented and optimized inside this framework with comparative model architecture and training procedure. These different models are then evaluated with different hyperparameters on different Datasets.
+\chapter{Theoretical background}
 This chapter gives a short overview about the theoretical basics which are necessary for the following work. First a general overview about deep learning is given with respect to its main critical parts. Then it will go into more detail about unsupervised learning followed by more specific parts about dimensionality reduction and clustering. General it can be said that dimensionality reduction and clustering are specific tasks of unsupervised learning, which is on the other hand a sub domain of deep learning. A graphical overview of the relationship between these mentioned domains is given in figure \ref{Relationship_DL}. 
 \begin{figure}[htb!]
 	\centering
@@ -260,9 +262,9 @@ This chapter gives a short overview about the theoretical basics which are neces
 \end{figure}
 
 \section{Deep Learning}
-Deep Learning is currently one of the most 
+Deep learning is a sub area of machine learning, which is in general a learning-based or data-driven approach to to design a processing rule (as "?" in figure \textbf{Slide 1-4 aus DL nachstellen}). The learning of this processing rule is based on examples. This learning strategy is adapted from the way humans learn to recognize, speak, walk, calculate etc..  Despite deep learning is often seen as a exciting new technology, it can be dated back to the 1940s. Following \cite{Goodfellow-et-al-2016}, there have been three waves of development: In the 1940s-1960s (known as cybernetics), between 1980 and 1990 as connectionism and the current resurgence under the recent name deep learning beginning in 2006. The third wave of development, which is still in progress began with a breakthrough by Geoffrey Hinton. He showed that a special kind of neural network, the so called "Deep Belief Network" could be trained efficiently using a strategy called greedy layer-wise pretraining (\textbf{Verweis einfügen}).
 \section{Unsupervised Learning}
-\section{Dimensionality Reduction}
+\section{Dimensionality Reduction/Representation Learning}
 \section{Clustering}
 \chapter{Working Environment (Framework)}
 \section{Tensorflow}
