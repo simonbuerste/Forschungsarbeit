@@ -1,0 +1,358 @@
+% -----------------------------------------------------------------
+% Vorlage fuer Ausarbeitungen von
+% Bachelor- und Masterarbeiten am ISS
+% 
+% Template for written reports or master theses at the ISS
+% 
+% For use with compilers pdflatex or latex->dvi2ps->ps2pdf.
+%
+% -----------------------------------------------------------------
+% README, STUDENT USERS:
+% We highly appreciate students using this template _AS IS_,period. 
+% The document provides adjustable document preferences, 
+% student information settings and typography definitions. Look for
+% code delimited by *** ***
+%
+% The short explanation: it's the ISS common standard and 
+% 	it's battle tested.
+% The long explanation: 
+%	We do not want you to go through the document and tweak the 
+%	package options, layout parameters and line skips here and 
+%	there and waste hours. We are providing this template such 
+%	that you can fully concentrate on filling in the much more 
+%	important _contents_ of your thesis.
+%
+% If you have serious needs on extra packages or design 
+% modifications, talk to your supervisor _before_ modifying 
+% the template.
+% Similarly, we're happy if you give your supervisor a hint on any 
+% errors in this template.
+%
+% -----------------------------------------------------------------
+% History:
+% Jan Scheuing,   04.03.2002
+% Markus Buehren, 20.12.2004
+% last changes:   10.01.2008 (removed unused packages), 
+% 		07.08.2009 (added IEEEtran_LSS.bst file)
+% 		02.05.2011 removed matriculation number from cover page
+% Martin Kreissig, 25.01.2012, all eps/ps parts removed for 
+% 				pdflatex to work properly
+% Peter Hermannstaedter, 14.08.2012, fusion of versions for 
+% 		latex/dvi/ps/pdf and pdflatex, additional comments,
+% 		unification of document flags and student options
+%
+% -----------------------------------------------------------------
+% To do: 
+% - remove obsolete documentclass options if all our systems 
+%	have up-to-date tex distributions
+% -----------------------------------------------------------------
+
+
+\documentclass[12pt,DIV14,BCOR12mm,a4paper,footexclude,headinclude,halfparskip-,twoside,openright,openany,cleardoubleempty,idxtotoc,bibtotoc]{scrreprt} % Koma-Script
+%
+%
+%
+% *****************************************************************
+% -------------------> document preferences here <-----------------
+% *****************************************************************
+% Uncomment the settings you like and comment the settings you dont
+% like.
+
+% Language: 
+% affects generic titles, Figure term, titlepage and bibliography
+% (Note:if you switch the language, compile tex and bib >2 times)
+\def \doclang{english} 	% For theses/reports in English
+%\def \doclang{german} 		% For theses/reports in German
+
+% Hyperref links in the document:
+\def \colortype{color} % links with colored text
+%\def \colortype{bw} 	% plain links, standard text color (e.g. for print)
+%\def \colortype{boxed} % links with colored boxes
+% *****************************************************************
+%
+%
+%
+% *****************************************************************
+% --------------> put student information here <------------------
+% *****************************************************************
+% Pleas fill in all items denoted by "to be defined (TBD)"
+\def \deworktitle{Vergleich von aktuellen Clustering Algorithmen}        % German title/translation
+\def \enworktitle{Comparison of State-of-the-art Clustering algorithm}       % English title/translation
+\def \tutor{Alexander Bartler}
+\def \student{Simon Kamm}
+\def \worksubject{Research Thesis s1279}
+\def \startdate{22.10.2018}
+\def \submission{21.04.2019}
+\def \signagedate{21.04.2019}   % Date of signature of declaration on last page
+\def \keywords{unsupervised learning, clustering}
+\def \abstract{}
+% \def \studentID{Matriculation number}  % matriculation number on cover sheet deprecated (2011-05-02)
+
+% *****************************************************************
+%
+%
+
+\usepackage[latin1]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{ifthen}
+\ifthenelse{\equal{\doclang}{german}}{
+	\usepackage[ngerman]{babel} %german version!!
+	\def \langtitle{\enworktitle}
+	%\def \suptitle{\enworktitle}	
+}{
+	%english version!!
+	\def \langtitle{\enworktitle}
+	%\def \suptitle{\deworktitle}
+}
+\usepackage{txfonts} % Times-Fonts
+\usepackage[T1]{fontenc}
+\usepackage{color}
+\usepackage[headsepline]{scrpage2} % Headings
+
+\usepackage{graphicx}
+\usepackage[format=hang]{caption}       % for hanging captions
+\usepackage{subfig}                     % for subfigures
+\usepackage{wrapfig}                    % for figures floating in text, alternatively you can use >>floatflt<<
+
+
+\ifthenelse{\equal{\colortype}{color}}{
+	% colored text version:
+	\usepackage[colorlinks,linkcolor=blue]{hyperref}
+	\newcommand{\bugfix}{\color{white}{\texttt{\symbol{'004}}}} % Bug-Fix Umlaute in Verbatim
+}{
+	\ifthenelse{\equal{\colortype}{boxed}}{
+		% colored box version:
+		\usepackage{hyperref}
+		\newcommand{\bugfix}{\color{white}{\texttt{\symbol{'004}}}} % Bug-Fix Umlaute in Verbatim
+	}{
+		% monochrome version:
+		\usepackage[hidelinks]{hyperref}
+		\newcommand{\bugfix}{\color{white}{\texttt{\symbol{'004}}}} % Bug-Fix Umlaute in Verbatim
+	}
+}
+
+% Layout and Headings
+\pagestyle{scrheadings}
+\automark{chapter}
+\clearscrheadfoot
+\lehead[]{\pagemark~~\headmark}
+\rohead[]{\headmark~~\pagemark}
+\renewcommand{\chaptermark}[1]{\markboth {\sl \hspace{8mm}#1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\sl \thesection~#1\hspace{8mm}}}
+\addtolength{\textheight}{15mm}
+\parindent0ex
+\setlength{\parskip}{5pt plus 2pt minus 1pt}
+\renewcommand*{\pnumfont}{\normalfont\slshape} % Seitenzahl geneigt
+\renewcommand*{\sectfont}{\bfseries} % Kapitelueberschrift nicht Helvetica
+
+% Settings for PDF document
+\pdfstringdef \studentPDF {\student}
+\pdfstringdef \worktitlePDF {\langtitle}
+\pdfstringdef \worksubjectPDF {\worksubject}
+\hypersetup{pdfauthor=\studentPDF, 
+	pdftitle=\worktitlePDF,
+	pdfsubject=\worksubjectPDF}
+
+% Title page
+\titlehead{
+	\includegraphics[width=20mm]{university-logo}
+	\hspace{6mm}
+	\ifthenelse{\equal{\doclang}{german}}{
+		\begin{minipage}[b]{.6\textwidth}
+			{\Large Universit\"at Stuttgart } \\
+			Institut f\"ur Signalverarbeitung und Systemtheorie\\
+			Professor Dr.-Ing. B. Yang \vspace{0pt}
+		\end{minipage}
+	}{
+		\begin{minipage}[b]{.6\textwidth}
+			{\Large University of Stuttgart } \\
+			Institute for Signal Processing and System Theory\\
+			Professor Dr.-Ing. B. Yang \vspace{0pt}
+		\end{minipage}
+	}
+	\hspace{1mm}
+	\includegraphics[width=28mm]{isslogocolor}
+}
+\subject{\worksubject\vspace*{-5mm}} % Art und Nummer der Arbeit
+\title{\Large{\langtitle}}
+\author{
+	\large
+	\ifthenelse{\equal{\doclang}{german}}{
+		\begin{tabular}{rp{7cm}}
+			\Large 
+			Autor:      & \Large \student \vspace*{2mm}\\
+			%    Matr.-Nr.:  & \studentID \\
+			Ausgabe:    & \startdate \\
+			Abgabe:     & \submission \vspace*{3mm}\\
+			Betreuer:   & \tutor \vspace*{2mm}\\
+			Stichworte: & \keywords
+		\end{tabular}
+	}{
+		\begin{tabular}{rp{7cm}}
+			\Large 
+			Authors:             & \Large \student \vspace*{2mm}\\
+			%    Matr.-Nr.:          & \studentID \\
+			Date of work begin: & \startdate \\
+			Date of submission: & \submission \vspace*{3mm}\\
+			Supervisor:         & \tutor \vspace*{2mm}\\
+			Keywords:           & \keywords
+		\end{tabular}
+	}
+	\bugfix
+}
+\date{}
+\publishers{\normalsize
+	\begin{minipage}[t]{.9\textwidth}
+		\abstract
+	\end{minipage}
+}
+
+\numberwithin{equation}{chapter} 
+\sloppy 
+
+%
+%
+%
+% *****************************************************************
+% --------------> put typography definitions here <----------------
+% *****************************************************************
+% colors
+\definecolor{darkblue}{rgb}{0,0,0.4}
+
+% declarations
+\newcommand{\matlab}{\textsc{Matlab}\raisebox{1ex}{\tiny{\textregistered}} }
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\operatorname{E}}
+\newcommand{\e}[1]{\operatorname{e}^{\,#1}}
+\newcommand{\op}[1]{\operatorname{#1}}
+\newcommand{\smtext}[1]{{\scriptscriptstyle\text{#1}}}
+
+% unknown hyphenation rules
+\hyphenation{Im-puls-ant-wort Im-puls-ant-wort-ko-ef-fi-zien-ten
+	Pro-gramm-aus-schnitt Mi-kro-fon-sig-nal}
+% *****************************************************************
+%
+%
+%
+% *****************************************************************
+\begin{document}
+	
+	% title and table of contents
+	\maketitle
+	\pagenumbering{roman} % roman numbering for table of contents
+	\tableofcontents
+	\cleardoublepage
+	\setcounter{page}{1}
+	\pagenumbering{arabic} % arabic numbering for rest of document
+	
+	% *****************************************************************
+	% -------------------> start writing here <------------------------
+\chapter{Introduction}
+This chapter gives a short overview about the theoretical basics which are necessary for the following work. First a general overview about deep learning is given with respect to its main critical parts. Then it will go into more detail about unsupervised learning followed by more specific parts about dimensionality reduction and clustering. General it can be said that dimensionality reduction and clustering are specific tasks of unsupervised learning, which is on the other hand a sub domain of deep learning. A graphical overview of the relationship between these mentioned domains is given in figure \ref{Relationship_DL}. 
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{Graphiken/Overview_Deep_Learning.png}
+	\caption{Relationship between deep learning, unsupervised learning, clustering and dimensionality reduction}
+	\label{Relationship_DL}
+\end{figure}
+
+\section{Deep Learning}
+Deep Learning is currently one of the most 
+\section{Unsupervised Learning}
+\section{Dimensionality Reduction}
+\section{Clustering}
+\chapter{Working Environment (Framework)}
+\section{Tensorflow}
+\section{Framework}
+\chapter{Preliminary Architectures and Algorithm}
+\section{Autoencoder}
+\section{Variational Autoencoder}
+\section{kMeans}
+\section{Gaussian Mixture Model}
+\section{IDEC}
+\chapter{Experimental Setup}
+\section{Datasets}
+\section{Investigated Hyperparameters}
+\chapter{Results}
+\chapter{Summary and Outlook}
+
+Then we include a graphic in figure \ref{mind} and information about captions in table \ref{captions}.\\
+\begin{figure}
+	\centering
+	\includegraphics[scale=.3]{isslogocolor}
+	\caption{A beautiful mind}
+	\label{mind}
+\end{figure}
+
+\begin{table}
+    \centering
+    \caption{Where to put the caption}
+    \label{captions}
+    \begin{tabular}{lcc}
+         & above & below\\
+        for figures & no & yes\\
+        for tables & yes & no\\
+    \end{tabular}
+\end{table}
+
+
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+\newpage
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+
+
+\appendix
+\chapter{Additionally}
+You may do an appendix
+
+	% -------------------> end writing here <------------------------
+	% *****************************************************************
+	\ifthenelse{\equal{\doclang}{german}}{
+		\bibliographystyle{IEEEtran_ISSger}
+	}{
+		\bibliographystyle{IEEEtran_ISS}
+	}
+	\bibliography{refs}
+	
+	% *****************************************************************
+	%% Additional page with Declaration ("Eidesstattliche Erklrung");
+	%% completed automatically
+	\begin{titlepage}
+		\vfill
+		\LARGE \ifthenelse{\equal{\doclang}{german}}{\textbf{Erkl\"arung}}{\textbf{Declaration}}
+		\vfill
+		
+		\ifthenelse{\equal{\doclang}{german}}{
+			Hiermit erkl\"are ich, dass ich diese Arbeit selbstst\"andig verfasst und keine anderen als die angegebenen
+			Quellen und Hilfsmittel benutzt habe.
+		}
+		{
+			Herewith, we declare that we have developed and written the enclosed thesis entirely by ourself and that I have not used sources or means except those declared.
+		}
+		
+		\vspace{1cm}
+		
+		\ifthenelse{\equal{\doclang}{german}}{
+			Die Arbeit wurde bisher keiner anderen Pr\"ufungsbeh\"orde vorgelegt und auch noch nicht ver\"offentlicht.
+		}
+		{
+			This thesis has not been submitted to any other authority to achieve an academic grading and has not been published elsewhere.
+		}
+		
+		\vfill
+		
+		
+		Stuttgart, \signagedate
+		\hfill
+		\begin{tabular}{l}
+			\hline
+			\student
+		\end{tabular}
+	\end{titlepage}
+	
+	
+	
+\end{document}

@@ -2,3 +2,16 @@
 *.iml
 *.xml
 *.pyc
+*.pdf
+*.pptx
+*.bst
+*.url
+*.aux
+*.bbl
+*.blg
+*.dvi
+*.log
+*.out
+*.ps
+*.gz
+*.toc
