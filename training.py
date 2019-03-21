@@ -144,15 +144,15 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             # if epoch > 5:
             #     params.lambda_r = 0.001
             if epoch == 0:
-                params.lambda_r = 1.0
-                params.lamdba_c = 0
+                params.lambda_r = 0.001
+                params.lamdba_c = 0.0
                 params.lambda_d = 1.0
                 params.lambda_b = 0.0
                 params.lambda_w = 0.0
-            elif epoch == 50:
-                params.lambda_r = 0.1
-                params.lambda_c = -0.5
-                params.lambda_d = 0.5
+            elif epoch == 30:
+                params.lambda_r = 0.001
+                params.lambda_c = -1.0
+                params.lambda_d = 1.0
                 params.lambda_b = 0.0
                 params.lambda_w = 0.0
             # elif epoch == 40:
@@ -205,11 +205,11 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
                     visualize_embeddings(sess, log_dir, embedded_data, (epoch + 1), train_writer, params)
 
             # If best_eval, best_save_path
-            metrics_eval['Model_loss'] = metrics_train['loss']
+            metrics_eval['training_loss'] = metrics_train['loss']
 
-            if metrics_eval['Model_loss'] <= best_eval_loss:
+            if metrics_eval['training_loss'] <= best_eval_loss:
                 # Store new best accuracy
-                best_eval_loss = metrics_eval['Model_loss']
+                best_eval_loss = metrics_eval['training_loss']
                 # Save weights
                 best_save_path = os.path.join(model_dir, 'best_weights/', 'after-epoch')
                 best_save_path = best_saver.save(sess, best_save_path, global_step=epoch + 1)
