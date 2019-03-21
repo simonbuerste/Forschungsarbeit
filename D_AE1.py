@@ -74,10 +74,11 @@ def encoder(encoder_input, is_training, params, sigma):
     x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.nn.leaky_relu(x, alpha=0.2)
     print(x.get_shape())
-    x = tf.layers.conv2d(x, filters=128, kernel_size=2, strides=2, padding='same',
-                         kernel_initializer=tf.contrib.layers.xavier_initializer())
-    x = tf.layers.batch_normalization(x, training=is_training)
-    x = tf.nn.leaky_relu(x, alpha=0.2)
+    x = tf.layers.average_pooling2d(x, 2, 2)
+    # x = tf.layers.conv2d(x, filters=128, kernel_size=2, strides=2, padding='same',
+    #                      kernel_initializer=tf.contrib.layers.xavier_initializer())
+    # x = tf.layers.batch_normalization(x, training=is_training)
+    # x = tf.nn.leaky_relu(x, alpha=0.2)
 
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
