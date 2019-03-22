@@ -84,8 +84,9 @@
 \def \startdate{22.10.2018}
 \def \submission{21.04.2019}
 \def \signagedate{21.04.2019}   % Date of signature of declaration on last page
-\def \keywords{unsupervised learning, clustering}
-\def \abstract{}
+\def \keywords{deep learning, unsupervised learning, clustering, autoencoder, variational autoencoder, kmeans, gaussian mixture model}
+\def \abstract{Current "state-of-the-art" clustering algorithms are usually consist of two parts. The first one is a dimensionality reduction (often called feature extraction) part while the second uses the extracted and reduced features and perform clustering on this. In this work, some selecet current "state-of-the-art" clustering models based on different autoencoder models are implemented. A large-scale evaluation for this models is done to check their performance on (more and less) complicated datasets (from 32x32 greayscale images of MNIST \cite{MNIST-Data} to 64x64 rgb images of IMAGENET \cite{imagenet_cvpr09}). Additionallythe effect of different hyperparameter settings is investigated. Hyperparameters are seperated into two kinds of hyperparameters. They are seperated into model-related hyperparameter, which directly influence the model (i.e. size of latentspace) and training-related hyperparameters (i.e. learning rate schedule, batch size, etc.). The procedure will be, that the specific model-related hyperparameters are first optimized based on "basic" training-related hyperparameters. The model-related hyperparameters will then be fixed and the second set of hyperparameters will be varied and their impact on clustering performance will be investigated.
+In this work state-of-the-art algorithms will be investigated, implemented and optimized inside a self-programmed framework (in Tensorflow) with comparative model architectures and training procedure. These different models are then evaluated with different hyperparameters on different Datasets.}
 % \def \studentID{Matriculation number}  % matriculation number on cover sheet deprecated (2011-05-02)
 
 % *****************************************************************
@@ -103,7 +104,7 @@
 }{
 	%english version!!
 	\def \langtitle{\enworktitle}
-	%\def \suptitle{\deworktitle}
+	\def \suptitle{\deworktitle}
 }
 \usepackage{txfonts} % Times-Fonts
 \usepackage[T1]{fontenc}
@@ -251,18 +252,78 @@
 	% *****************************************************************
 	% -------------------> start writing here <------------------------
 \chapter{Introduction}
-The field of unsupervised learning is a very fundamental one in machine learning. Since nearly every novel product is connected, a tremendous amount of data is generated. Neither every single data can be labelled, nor is it possible or necessary to save the whole original data, since most probably not everything is useful. Therefore, in the area of unsupervised learning, tasks like dimensionality reduction (sometimes also called representation learning) or clustering can help. Those two tasks are directly linked, since state-of-the art clustering methods use first a dimensionality reduction to one the one hand reduce the feature space but also extract relevant features out of the data. In most of these works a deep auto-encoder (or a variation of it) is trained to extract relevant features. Although in those works often a very good performance (in this case clustering accuracy) and generalizability is claimed, the experiments given in the publications are limited. Therefore different methods for clustering data are implemented and compared in this work inside a programmed framework within Tensorflow to allow a fair comparison of those methods. Therefore some state-of-the-art algorithms are investigated, implemented and optimized inside this framework with comparative model architecture and training procedure. These different models are then evaluated with different hyperparameters on different Datasets.
+The field of unsupervised learning is a fundamental one in machine learning. Since nearly every novel product is connected, a tremendous amount of data is generated. Neither every single data can be labelled, nor is it possible or desired to save the whole original data, since in most application not all recorded is useful. Therefore, in the area of unsupervised learning, tasks like dimensionality reduction (sometimes also called representation learning) or clustering are important to extract relevant features or/and group similar data together. Those two tasks are directly linked, since state-of-the art clustering methods use as first step a dimensionality reduction to on the one hand reduce the feature space but also extract the relevant features out of the data. Important for these models is, that they still want to perform the decoding step based on latent representations. So the reduced feature space should not just be a good representation for clustering similar data, but also allow a good reconstruction of the original data. Therefore, in most of these works a deep auto-encoder (or a variation of it) is first trained to extract those relevant features but also ensure a good reconstruction of the latent space. Different learning approaches exist to achieve this task. Traditionally, most learning approaches treat feature-selection/representation-learning and clustering separately. However, some novel approaches outperform traditional ones, by combining these two task. In this work, both kind of approaches are represented. Although in all of those works a very good performance (in this case clustering accuracy) and generalizability is claimed, the experiments given in the publications are often limited with respect to datasets and/or variation of hyperparameters. Therefore, in this work, different methods for clustering images are implemented and evaluated inside a self-programmed framework within Tensorflow to allow a fair comparison of those methods.\\
+First, a short overview of the theoretical background for deep learning and unsupervised learning is given. Followed by a more specific part about the idea and main algorithms for dimensionality reduction/ representation learning and clustering. Chapter two will explain the working environment which will be further used in this work. The third chapter introduces the used architectures and algorithms, as well as the related hyperparameters of the models. The mentioned algorithms are implemented inside the environment explained in chapter two. Chapter four defines the experimental setup for the evaluation of the models. This chapter introduces the used datasets as well as the investigated hyperparameters. Following this chapter, chapter five discusses and visualizes the results of the experiments. The final chapter 6 summarizes the work and gives a outlook about further possible investigations or steps which can be derived based on this work.
+
 \chapter{Theoretical background}
-This chapter gives a short overview about the theoretical basics which are necessary for the following work. First a general overview about deep learning is given with respect to its main critical parts. Then it will go into more detail about unsupervised learning followed by more specific parts about dimensionality reduction and clustering. General it can be said that dimensionality reduction and clustering are specific tasks of unsupervised learning, which is on the other hand a sub domain of deep learning. A graphical overview of the relationship between these mentioned domains is given in figure \ref{Relationship_DL}. 
+This chapter gives a short overview about the theoretical basics which are necessary for the following work. First a general overview about deep learning is given with respect to its main critical parts. Then it will go into more detail about unsupervised learning followed by more specific parts about dimensionality reduction and clustering. General it can be said that dimensionality reduction and clustering are specific tasks of unsupervised learning, which is on the other hand a sub domain of deep learning. A graphical overview of the relationship between these mentioned domains is given in figure \ref{fig:Relationship_DL}. 
 \begin{figure}[htb!]
 	\centering
-	\includegraphics[width=0.5\linewidth]{Graphiken/Overview_Deep_Learning.png}
+	\includegraphics[width=0.5\linewidth]{Graphiken/Overview_Deep_Learning}
 	\caption{Relationship between deep learning, unsupervised learning, clustering and dimensionality reduction}
-	\label{Relationship_DL}
+	\label{fig:Relationship_DL}
 \end{figure}
 
 \section{Deep Learning}
-Deep learning is a sub area of machine learning, which is in general a learning-based or data-driven approach to to design a processing rule (as "?" in figure \textbf{Slide 1-4 aus DL nachstellen}). The learning of this processing rule is based on examples. This learning strategy is adapted from the way humans learn to recognize, speak, walk, calculate etc..  Despite deep learning is often seen as a exciting new technology, it can be dated back to the 1940s. Following \cite{Goodfellow-et-al-2016}, there have been three waves of development: In the 1940s-1960s (known as cybernetics), between 1980 and 1990 as connectionism and the current resurgence under the recent name deep learning beginning in 2006. The third wave of development, which is still in progress began with a breakthrough by Geoffrey Hinton. He showed that a special kind of neural network, the so called "Deep Belief Network" could be trained efficiently using a strategy called greedy layer-wise pretraining (\textbf{Verweis einfügen}).
+Deep learning is a sub area of machine learning, which is in general a learning-based or data-driven approach to design a processing rule (see figure \ref{fig:ProcessingRule}). The learning of this processing rule is based on examples. So it's obvious that the choice of training samples is crucial for learning a good and generalized processing rule. 
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{Graphiken/ProcessingRule}
+	\caption{General problem formulation in machine learning}
+	\label{fig:ProcessingRule}
+\end{figure}
+There is one main difference between conventional machine learning and deep learning. While they have in common, that they get input data which is preprocessed depending on the application, in conventional machine learning features are extracted based on a defined rule (\cite{Goodfellow-et-al-2016}). For this task, no theory exists and experience is necessary to choose good and relevant features for the following task, i.e. classification. The classification is done by a classifier, like kNN (k-nearest neighbour) or SVM (Support Vector Machine). In deep learning, there exists just one so-called deep neural network (DNN) for the tasks feature extraction and classification. The DNN learns and adapts the network parameters by a proper loss function. This can be obtained efficiently using the technique of (error) backpropagation (\cite{Goodfellow-et-al-2016}, \cite{Nielsen-Michael}, \cite{DeepLearningDive}, \cite{Bishop}). More details will be given in the following.\\
+The learning strategy for DNNs is adapted from the way humans learn to recognize, speak, walk, calculate etc.. Despite deep learning is often seen as a exciting new technology, it can be dated back to the 1940s. Following \cite{Goodfellow-et-al-2016}, there have been three waves of development: In the 1940s-1960s (known as cybernetics), between 1980 and 1990 as connectionism and the current resurgence under the recent name deep learning beginning in 2006. The third wave of development, which is still in progress began with a breakthrough by Geoffrey Hinton. He showed that a special kind of neural network, the so called "Deep Belief Network" could be trained efficiently using a strategy called greedy layer-wise pretraining \cite{Hinton-et-al-2006}.\\
+Since this breakthrough, the applications of deep neural networks increases tremendously. Examples for applications of deep neural networks nowadays are recommender systems, automatic speech recognition, text to speech translation, image recognition and/or segmentation and a lot more \cite{DeepLearningDive}. For a special task the networks are typically adjusted and the architecture is adapted. Therefore a lot of variation of deep neural networks exists nowadays, examples mentioned in \cite{Nielsen-Michael} are convolutional neural networks (CNNs), recurrent neural networks (RNNs), deep belief nets (DBNs).\\
+In the following, the architecture of a feedforward neural network is exemplary showed, since "deep feedforward networks, also called feedforward neural networks or multilayer perceptrons (MLPs), are the quintessential deep learning models" \cite{Goodfellow-et-al-2016}. The naming "feedforward" comes from behaviour, that information flows in forward direction through the network, so from the input signal to the output. There is no feedback connection inside the model. These feedforward neural networks consists of multiple layers stacked together to a network. Each layer consists of many neurons. Figure \ref{fig:SingleNeuron} shows one single neuron.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.3\linewidth]{Graphiken/SingleNeuron}
+	\caption{Single Neuron in a feedforward neural network}
+	\label{fig:SingleNeuron}
+\end{figure}
+In equation \ref{eq:singleneuron}, the output $y$ of a single neuron is given, with $\phi$ is the (typically non-linear) activation function of the activation $a$ which is an affine function in $\underline{x}$. $\underline{x}$ is the input vector, or the 2-d input image or 3-d input tensor. The trainable parameters of the neuron are the weights $\underline{w}$ and the bias $b$.
+\begin{align}
+	a = \underline{w}{^T}*\underline{x}+b\\
+	y = \phi(a) \label{eq:singleneuron}
+\end{align}
+A layer of neurons, as drawn in figure \ref{fig:Layer_of_neurons}, consists of $c$ neurons, which are connected with the input and output. The neurons in the same are not interconnected between each other. Depending on the network structure, the connections to the input and output varies. For a dense (or fully connected) layer, each input $x_{j}$ is connected to each neuron $i$.
+\begin{figure}[htb!]
+	\centering
+	\subfloat[Layer of Neurons\label{fig:NeuronsLayer}]{%			
+		\includegraphics[width=0.45\linewidth]{Graphiken/NeuronsLayer}}
+	\qquad
+	\subfloat[Layer of Neurons compressed visualization\label{fig:NeuronsLayer_Matrix}]{%			
+		\includegraphics[width=0.45\linewidth]{Graphiken/NeuronsLayer_Matrix}}
+	\caption{Layer of Neurons in feedforward neural network}
+	\label{fig:Layer_of_neurons}
+\end{figure}
+After defining one layer, a layer can be followed by another and so on. The overall length of the chaing gives the depth of the model. From this terminology, the name deep learning arose. The first layer of a network is the "input layer", while the last one is the "output layer". Those two layers have fixed sizes, since the input and the output data of a network has a defined size. All layers between them are called hidden layers. These layers are called hidden since they are neither visible to the inputs nor the outputs. Different to the the input and output layers, their size is not fixed. They are generally used to form a \textit{bottleneck}, forcing the network to make a simple model of the system with the ability to generalise to previously unseen patterns (test data) \cite{Michie-et-al-1994}. By using non-linear activation functions, such as softmax (equation \ref{eq:softmax}) or rectifier linear unit (ReLU) (equation \ref{eq:ReLU}), it can be shown that already a "two-layer MLP can approximate an arbitrary continous mapping arbitrarily closely if there is no limit to the number of hidden nodes" \cite{Michie-et-al-1994}. This property of neural networks is also known as universal function approximation.
+\begin{align}
+	\phi_{i}(\underline{a}) = \frac{e^{a_{i}}}{\sum_{j=1}^{c}e^{a_{j}}} \label{eq:softmax}\\
+	\phi_{i}(a_{i}) = \begin{cases} 1 & a_{i} > 0\\0 & a_{i} \leq 0\\ \end{cases} \label{eq:ReLU}
+\end{align}
+If linear activation functions would be used, the overall network, independent on the depth of the network, will overall be just a linear transformation of the input data, so only linear solvable problems could be solved. This shows the importance for choosing non-linear activation functions.\\
+For training a neural network, a loss function based on the training data has to be defined, which has to be minimized, with respect to the network parameters. 
+Overall, the training task for a neural network is to minimize the cost function $L(\underline{\theta})$ on the training data as given in equation \ref{eq:CostFunction} with $\iota(\underline{x}(n),\underline{y}(n);\underline{\theta})$ is an arbitrary loss function where $\underline{y}$ is the target output of the network and $\underline{x}$ is the input of the network. The cost function denotes the total loss over all $N$ samples.
+\begin{align}
+	\underset{\underline{\theta}}\min L(\underline{\theta}) = \frac{1}{N}\sum_{n=1}^{N}\iota(\underline{x}(n),\underline{y}(n);\underline{\theta})  \label{eq:CostFunction}
+\end{align}
+The loss function is depending on the task. For regression, a typical loss function is the $l_{2}$-loss, where $l_{2}$-Norm of the error is used. The error is the difference between the target output $\underline{y}$ and the output of the neural network, $f(\underline{x};\underline{\theta})$. This loss function is given in equation \ref{eq:l2-loss}.
+\begin{align}
+	\iota(\underline{x},\underline{y};\underline{\theta}) = ||\underline{y}-f(\underline{x};\underline{\theta})||^{2}\label{eq:l2-loss}
+\end{align}
+For classification, a typical loss function is the categorical loss. Equation \ref{eq:cat-loss} denotes this loss function.
+\begin{align}
+	\iota(\underline{x},\underline{y};\underline{\theta}) = -\underline{y}^{T}ln f(\underline{x};\underline{\theta})\label{eq:cat-loss}
+\end{align}
+Our target is to find $\underset{\underline{\theta}}\min L(\underline{\theta})$, which has in general no closed-form solution. Therefore, numerical minimization is used in deep learning. The standard algorithm for minimizing the loss function is the gradient descent (GD) algorithm. In this algorithm, the gradient information is used to choose the parameter update to comprise a small step in the direction of the negative gradient \cite{Bishop}. Equation formulates the update step of the GD-algorithm where $t \in \mathbb{Z}_{\geq0}$ is the iteration index and $\eta > 0$ is the step size or learning rate. $\underline{\theta}^{0}$ is the initialization of the network and an initial guess for $\theta$.
+\begin{align}
+	\underline{\theta}^{t+1} = \underline{\theta}^{t} - \eta\underline{\nabla}L(\underline{\theta})|_{\underline{\theta}=\underline{\theta}^{t}}\label{eq:GradientDescent_update}
+\end{align}
+Due to the size training datasets, not the whole dataset can be kept in the memory. Therefore stochastic gradient descent is used to reduce the computing cost for each iteration, where the gradient vector $\underline{\nabla}L$ and the update $\underline{\theta}$ is calculated for one minibatch $i$. The stochastic gradient $\underline{\nabla}L_{i}$ is the unbiased estimate of the gradient $\underline{\nabla}L$, so we have a more noisy gradient which lead to the name \textbf{stochastic} gradient descent \cite{DeepLearningDive}.
+
+As mentioned in \cite{DeepLearningDive}, optimization provides a way to minimize the loss function for deep learning, but, in essence, the goals of optimization and deep learning are different. In pure optimization, we want to minimize the (training) loss function. But in deep learning, we focus on minimizing the generalization error, which is the value of the loss function computed on new, unseen data (test data). The terminology for this 
 \section{Unsupervised Learning}
 \section{Dimensionality Reduction/Representation Learning}
 \section{Clustering}
