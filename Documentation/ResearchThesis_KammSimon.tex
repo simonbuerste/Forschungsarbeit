@@ -115,7 +115,7 @@ In this work state-of-the-art algorithms will be investigated, implemented and o
 \usepackage[format=hang]{caption}       % for hanging captions
 \usepackage{subfig}                     % for subfigures
 \usepackage{wrapfig}                    % for figures floating in text, alternatively you can use >>floatflt<<
-
+\usepackage{booktabs}
 
 \ifthenelse{\equal{\colortype}{color}}{
 	% colored text version:
@@ -265,6 +265,7 @@ This chapter gives a short overview about the theoretical basics which are neces
 \end{figure}
 
 \section{Deep Learning}
+This section will give a rough overview about deep learning, the way deep neural networks actually work and how it is possible to train them. Firstly, the relation between deep learning and machine learning is explained. Then the general structure and behaviour of a neural network is explained and the algorithm for training those networks is introduced. Finally some difficulties in training these networks are named with corresponding solutions.\\
 Deep learning is a sub area of machine learning, which is in general a learning-based or data-driven approach to design a processing rule (see figure \ref{fig:ProcessingRule}). The learning of this processing rule is based on examples. So it's obvious that the choice of training samples is crucial for learning a good and generalized processing rule. 
 \begin{figure}[htb!]
 	\centering
@@ -321,12 +322,56 @@ Our target is to find $\underset{\underline{\theta}}\min L(\underline{\theta})$,
 \begin{align}
 	\underline{\theta}^{t+1} = \underline{\theta}^{t} - \eta\underline{\nabla}L(\underline{\theta})|_{\underline{\theta}=\underline{\theta}^{t}}\label{eq:GradientDescent_update}
 \end{align}
-Due to the size training datasets, not the whole dataset can be kept in the memory. Therefore stochastic gradient descent is used to reduce the computing cost for each iteration, where the gradient vector $\underline{\nabla}L$ and the update $\underline{\theta}$ is calculated for one minibatch $i$. The stochastic gradient $\underline{\nabla}L_{i}$ is the unbiased estimate of the gradient $\underline{\nabla}L$, so we have a more noisy gradient which lead to the name \textbf{stochastic} gradient descent \cite{DeepLearningDive}.
-
-As mentioned in \cite{DeepLearningDive}, optimization provides a way to minimize the loss function for deep learning, but, in essence, the goals of optimization and deep learning are different. In pure optimization, we want to minimize the (training) loss function. But in deep learning, we focus on minimizing the generalization error, which is the value of the loss function computed on new, unseen data (test data). The terminology for this 
+Due to the size training datasets, not the whole dataset can be kept in the memory. Therefore stochastic gradient descent is used to reduce the computing cost for each iteration, where the gradient vector $\underline{\nabla}L$ and the update $\underline{\theta}$ is calculated for one minibatch $i$. The stochastic gradient $\underline{\nabla}L_{i}$ is the unbiased estimate of the gradient $\underline{\nabla}L$, so we have a more noisy gradient which lead to the name \textbf{stochastic} gradient descent \cite{DeepLearningDive}.\\
+It is obvious, that the calculation of $\underline{\nabla}L$ is crucial for performing an update step. Therefore, we want to compute the partial derivatives of the cost function with respect to the network parameters $w$ and $b$: $\dfrac{\partial L}{\partial w}$ and $\dfrac{\partial L}{\partial b}$. This can be done efficiently by using the error backpropagation algorithm (sometimes just called \textit{backpropagation} or \textit{backprop}). As the name denotes, the error vector are backpropagated through the network. Starting at the output layer, the  error vector of layer $L$ with respect to the weights $w_{L_{ij}}$ is given in equation \ref{eq:ErrorVector_OutputLayer} with $\underline{x}_{L}$ as the output and $\underline{a}_{L}$ as activation of layer $L$. Calculating the partial derivative with respect to $b$ follows the same algorithms.
+\begin{align}
+	\underline{\delta}_{L}^{T} = \dfrac{\partial L(\underline{\theta})}{\partial w_{L_{ij}}} = \dfrac{\partial L}{\partial \underline{x}_{L}}\dfrac{\partial \underline{x}_{L}}{\partial \underline{a}_{L}}\dfrac{\partial \underline{a}_{L}}{\partial w_{L_{ij}}}\label{eq:ErrorVector_OutputLayer}
+\end{align}
+For the remaining layers $l \in [1, L-1]$ the error vector can be calculated by applying the chain rule for differentiation. The error vector for layer $l$ can be calculated with equation \ref{eq:ErrorVector_generalLayer} \cite{LectureNotes_DeepLearning}.
+\begin{align}
+	\underline{\delta}_{l}^{T} = \underline{\delta}_{l+1}^{T}\dfrac{\partial \underline{a}_{l+1}}{\partial a_{l}}\dfrac{\partial \underline{a}_{l}}{\partial w_{l_{ij}}}\label{eq:ErrorVector_generalLayer}
+\end{align}
+Figure \ref{fig:Backprop_DNN} gives a graphical representation of the paths through a DNN. Figure \ref{fig:ForwardPass_DNN} shows the forward path through a DNN for calculating the cost values. Figure \ref{fig:BackwardPass_DNN} shows the backpropagation of the error vectors through the network.
+\begin{figure}[htb!]
+	\centering
+	\subfloat[Layer of Neurons\label{fig:ForwardPass_DNN}]{%			
+		\includegraphics[width=0.45\linewidth]{Graphiken/ForwardPass_DNN}}
+	\qquad
+	\subfloat[Layer of Neurons compressed visualization\label{fig:BackwardPass_DNN}]{%			
+		\includegraphics[width=0.45\linewidth]{Graphiken/BackwardPass_DNN}}
+	\caption{Layer of Neurons in feedforward neural network}
+	\label{fig:Backprop_DNN}
+\end{figure}
+By backpropagating through the network, $\underline{\delta}_{1}^{T}$ gives in the end the error vector of the network. This information will then be used for updating the weights and biases following an numerical optimization algorithm like the stochastic gradient descent algorithm.\\
+\cite{Bishop} summarizes the error backpropagation in four steps:
+\begin{enumerate}
+	\item Apply the input $\underline{x}_{0}$ to the network and forward propagate through the network as in figure \ref{fig:ForwardPass_DNN} to find activations of all the hidden and output units.
+	\item Evaluate the error vector $\underline{\delta}_{L}^{T}$ for all output units using equation \ref{eq:ErrorVector_OutputLayer}
+	\item Backpropagate the error vectors through $\underline{\delta}_{l}^{T}$ the network following \ref{eq:ErrorVector_generalLayer} to obtain the error vector for each hidden unit in the network (figure \ref{fig:BackwardPass_DNN})
+	\item Apply a numerical optimization algorithm (i.e. SGD) to adapt the network parameters
+\end{enumerate}
+Training (optimizing) a neural network is a difficult task and suffers from a number of optimization difficulties. Table \ref{tab:Difficulties} gives a rough summary about the difficulties and solutions in optimizing a neural network \cite{LectureNotes_DeepLearning}.\\
+\begin{table}
+    \centering
+    \caption{Difficulties in optimizing a neural network}
+    \label{tab:Difficulties}
+    \begin{tabular}{lcc}
+        \toprule
+        Difficulty & Solutions\\
+        \midrule
+        stochastic gradient & larger minibatch size, momentum\\
+        ill conditioning & momentum, input scaling and batch normalization\\
+        saddle point / plateau & noisy gradient\\
+        sensitive to step size & learning rate schedule\\
+        local minimum & parameter initialization\\
+        vanishing gradient & parameter initialization, improved model\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+As mentioned in \cite{DeepLearningDive}, optimization provides a way to minimize the loss function for deep learning, but, in essence, the goals of optimization and deep learning are different. In pure optimization, we want to minimize the (training) loss function. But in deep learning, we focus on minimizing the generalization error, which is the value of the loss function computed on new, unseen data (test data). Thus it is important to regularly apply test data to the network while training, to see if the network is overfitted to the training data. This means, the error on the training data is very small in comparison to the test/generalization error. There are various methods to ensure overfitting does not take place, i.e. dropout or regularization (\cite{Goodfellow-et-al-2016}, \cite{Nielsen-Michael}, \cite{DeepLearningDive}, \cite{Bishop}).
 \section{Unsupervised Learning}
-\section{Dimensionality Reduction/Representation Learning}
-\section{Clustering}
+\subsection{Dimensionality Reduction/Representation Learning}
+\subsection{Clustering}
 \chapter{Working Environment (Framework)}
 \section{Tensorflow}
 \section{Framework}
