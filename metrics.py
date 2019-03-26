@@ -60,9 +60,7 @@ def adjuster_rand_index(counts):
 
     # Calculate binomial coefficients of all counts over 2
     # Variable called "n"
-    n_enum = tf.exp(tf.lgamma(counts+1))  # (add + 1 due to definition of gamma function)
-    n_denom = 2*tf.exp(tf.lgamma(counts-1))  # (add + 1 due to definition of gamma function)
-    n_bi_coeff = n_enum/n_denom
+    n_bi_coeff = counts*(counts-1)/2 # calculation of binomial coeff. n_ij over 2
     n_sum_bi_coeff = tf.reduce_sum(n_bi_coeff)
 
     # Calculate binomial coefficients of the sums of each cluster over 2
