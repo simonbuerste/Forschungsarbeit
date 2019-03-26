@@ -85,7 +85,7 @@
 \def \submission{21.04.2019}
 \def \signagedate{21.04.2019}   % Date of signature of declaration on last page
 \def \keywords{deep learning, unsupervised learning, clustering, autoencoder, variational autoencoder, kmeans, gaussian mixture model}
-\def \abstract{Current "state-of-the-art" clustering algorithms are usually consist of two parts. The first one is a dimensionality reduction (often called feature extraction) part while the second uses the extracted and reduced features and perform clustering on this. In this work, some selecet current "state-of-the-art" clustering models based on different autoencoder models are implemented. A large-scale evaluation for this models is done to check their performance on (more and less) complicated datasets (from 32x32 greayscale images of MNIST \cite{MNIST-Data} to 64x64 rgb images of IMAGENET \cite{imagenet_cvpr09}). Additionallythe effect of different hyperparameter settings is investigated. Hyperparameters are seperated into two kinds of hyperparameters. They are seperated into model-related hyperparameter, which directly influence the model (i.e. size of latentspace) and training-related hyperparameters (i.e. learning rate schedule, batch size, etc.). The procedure will be, that the specific model-related hyperparameters are first optimized based on "basic" training-related hyperparameters. The model-related hyperparameters will then be fixed and the second set of hyperparameters will be varied and their impact on clustering performance will be investigated.
+\def \abstract{Current "state-of-the-art" clustering algorithms are usually consist of two parts. The first one is a dimensionality reduction (often called feature extraction) part while the second one uses the extracted features and perform clustering on those. In this work, selected "state-of-the-art" clustering models based on different autoencoder models are implemented. A large-scale evaluation for this models is done to check their performance on (more and less) complicated datasets (from 32x32 greyscale images of MNIST \cite{MNIST-Data} to 64x64 rgb images of IMAGENET \cite{imagenet_cvpr09}). Additionally the effect of different hyperparameter settings is investigated. Hyperparameters are separated into two kinds of hyperparameters. They are separated into model-related hyperparameters, which directly influence the model (i.e. size of latentspace) and training-related hyperparameters (i.e. learning rate schedule, batch size, etc.). Firstly, the specific model-related hyperparameters are optimized based on "basic" training-related hyperparameters. Secondly, the model-related hyperparameters will be fixed and the second set of hyperparameters will be varied and their impact on the clustering performance will be investigated.
 In this work state-of-the-art algorithms will be investigated, implemented and optimized inside a self-programmed framework (in Tensorflow) with comparative model architectures and training procedure. These different models are then evaluated with different hyperparameters on different Datasets.}
 % \def \studentID{Matriculation number}  % matriculation number on cover sheet deprecated (2011-05-02)
 
@@ -116,6 +116,8 @@ In this work state-of-the-art algorithms will be investigated, implemented and o
 \usepackage{subfig}                     % for subfigures
 \usepackage{wrapfig}                    % for figures floating in text, alternatively you can use >>floatflt<<
 \usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 
 \ifthenelse{\equal{\colortype}{color}}{
 	% colored text version:
@@ -252,7 +254,8 @@ In this work state-of-the-art algorithms will be investigated, implemented and o
 	% *****************************************************************
 	% -------------------> start writing here <------------------------
 \chapter{Introduction}
-The field of unsupervised learning is a fundamental one in machine learning. Since nearly every novel product is connected, a tremendous amount of data is generated. Neither every single data can be labelled, nor is it possible or desired to save the whole original data, since in most application not all recorded is useful. Therefore, in the area of unsupervised learning, tasks like dimensionality reduction (sometimes also called representation learning) or clustering are important to extract relevant features or/and group similar data together. Those two tasks are directly linked, since state-of-the art clustering methods use as first step a dimensionality reduction to on the one hand reduce the feature space but also extract the relevant features out of the data. Important for these models is, that they still want to perform the decoding step based on latent representations. So the reduced feature space should not just be a good representation for clustering similar data, but also allow a good reconstruction of the original data. Therefore, in most of these works a deep auto-encoder (or a variation of it) is first trained to extract those relevant features but also ensure a good reconstruction of the latent space. Different learning approaches exist to achieve this task. Traditionally, most learning approaches treat feature-selection/representation-learning and clustering separately. However, some novel approaches outperform traditional ones, by combining these two task. In this work, both kind of approaches are represented. Although in all of those works a very good performance (in this case clustering accuracy) and generalizability is claimed, the experiments given in the publications are often limited with respect to datasets and/or variation of hyperparameters. Therefore, in this work, different methods for clustering images are implemented and evaluated inside a self-programmed framework within Tensorflow to allow a fair comparison of those methods.\\
+The field of unsupervised learning is a fundamental one in machine learning. Since nearly every novel product is connected, a tremendous amount of data is generated. Neither every single data can be labelled, nor is it possible or desired to save the whole original data, since in most application not all recorded is useful. Therefore, in the area of unsupervised learning, tasks like dimensionality reduction (sometimes also called representation learning) or clustering are important to extract relevant features or/and group similar data together. Those two tasks are directly linked, since state-of-the-art clustering methods use as first step a dimensionality reduction to reduce the feature space and extract the relevant features out of the original data. Nevertheless these models are usually build in an encoding/decoding scheme, so they not just focus on the dimensionality reduction but also on reconstructing the data out of the low-dimensional representation. So the reduced feature space should be on the one hand a good representation in terms of clustering similar data, but on the other hand allow a good reconstruction of the original data. Those two tasks can be contrary, i.e. when for a good reconstruction in pixel space the colour of the background of the image is important, but this is not relevant for detecting and clustering similar objects in the feature space. An example are pictures of a flying bird and a flying airplane, which both will contain many blue pixels but just a few others that make the distinction. For reconstruction in pixel space the encoding of (for clustering) potentially unnecessary but space consuming information such as the sky could be favoured. In literature this problem is often called "blue-sky problem" \cite{Haeusser18bluesky}.\\
+In most of the works a deep auto-encoder (or a variation of it) is first trained to extract those relevant features but also ensure a good reconstruction of the latent space. Different learning approaches exist to achieve this task. Traditionally, most learning approaches treat feature-selection/representation-learning and clustering separately. However, some novel approaches outperform traditional ones, by combining these two task. In this work, both kind of approaches are represented. Although in all of those works a very good performance (in this case clustering accuracy) and generalizability is claimed, the experiments given in the publications are often limited with respect to datasets and/or variation of hyperparameters. Therefore, in this work, different methods for clustering images are implemented and evaluated inside a self-programmed framework within Tensorflow to allow a fair comparison of those methods.\\
 First, a short overview of the theoretical background for deep learning and unsupervised learning is given. Followed by a more specific part about the idea and main algorithms for dimensionality reduction/ representation learning and clustering. Chapter two will explain the working environment which will be further used in this work. The third chapter introduces the used architectures and algorithms, as well as the related hyperparameters of the models. The mentioned algorithms are implemented inside the environment explained in chapter two. Chapter four defines the experimental setup for the evaluation of the models. This chapter introduces the used datasets as well as the investigated hyperparameters. Following this chapter, chapter five discusses and visualizes the results of the experiments. The final chapter 6 summarizes the work and gives a outlook about further possible investigations or steps which can be derived based on this work.
 
 \chapter{Theoretical background}
@@ -265,7 +268,7 @@ This chapter gives a short overview about the theoretical basics which are neces
 \end{figure}
 
 \section{Deep Learning}
-This section will give a rough overview about deep learning, the way deep neural networks actually work and how it is possible to train them. Firstly, the relation between deep learning and machine learning is explained. Then the general structure and behaviour of a neural network is explained and the algorithm for training those networks is introduced. Finally some difficulties in training these networks are named with corresponding solutions.\\
+This section will give a rough overview about deep learning, the way deep neural networks actually work and how it is possible to train them. Firstly, the relation between deep learning and machine learning is explained. Then the general structure and behaviour of a neural network is explained and the algorithm for training those networks is introduced. Finally some difficulties in training these networks are named with corresponding solutions. Due to focussing on the main part of the research thesis, the basics of the mentioned points are introduced, but not every points is discussed and explained in detail. For detaisl, please refer to the corresponding reference.\\
 Deep learning is a sub area of machine learning, which is in general a learning-based or data-driven approach to design a processing rule (see figure \ref{fig:ProcessingRule}). The learning of this processing rule is based on examples. So it's obvious that the choice of training samples is crucial for learning a good and generalized processing rule. 
 \begin{figure}[htb!]
 	\centering
@@ -288,7 +291,7 @@ In equation \ref{eq:singleneuron}, the output $y$ of a single neuron is given, w
 	a = \underline{w}{^T}*\underline{x}+b\\
 	y = \phi(a) \label{eq:singleneuron}
 \end{align}
-A layer of neurons, as drawn in figure \ref{fig:Layer_of_neurons}, consists of $c$ neurons, which are connected with the input and output. The neurons in the same are not interconnected between each other. Depending on the network structure, the connections to the input and output varies. For a dense (or fully connected) layer, each input $x_{j}$ is connected to each neuron $i$.
+A layer of neurons, as drawn in figure \ref{fig:Layer_of_neurons}, consists of $c$ neurons, which are connected with the input and output. The neurons in the same are not interconnected between each other. Depending on the network structure, the connections to the input and output varies. Two of the most popular layer structure are dense (or fully connected) and convolutional layer. For a dense (or fully connected) layer, each input $x_{j}$ is connected to each neuron $i$. The drawbacks of fully connected networks (FCN - network consisting of just fully connected layers) are the huge number of parameters, so a tremendous computational and memory complexity is the result. It does not learn local patterns/features of input signals since all neurons are fully connected. This problems can be solved by using a convolutional neural network (CNN - network consisting mainly of convolutional layers). Due to the properties of sparse connections and parameter sharing, the memory complexity is reduced and the networks is able to recognize input pattern regardless of its position (a CNN focusses on local input patterns) \cite{LectureNotes_DeepLearning}.
 \begin{figure}[htb!]
 	\centering
 	\subfloat[Layer of Neurons\label{fig:NeuronsLayer}]{%			
@@ -299,7 +302,7 @@ A layer of neurons, as drawn in figure \ref{fig:Layer_of_neurons}, consists of $
 	\caption{Layer of Neurons in feedforward neural network}
 	\label{fig:Layer_of_neurons}
 \end{figure}
-After defining one layer, a layer can be followed by another and so on. The overall length of the chaing gives the depth of the model. From this terminology, the name deep learning arose. The first layer of a network is the "input layer", while the last one is the "output layer". Those two layers have fixed sizes, since the input and the output data of a network has a defined size. All layers between them are called hidden layers. These layers are called hidden since they are neither visible to the inputs nor the outputs. Different to the the input and output layers, their size is not fixed. They are generally used to form a \textit{bottleneck}, forcing the network to make a simple model of the system with the ability to generalise to previously unseen patterns (test data) \cite{Michie-et-al-1994}. By using non-linear activation functions, such as softmax (equation \ref{eq:softmax}) or rectifier linear unit (ReLU) (equation \ref{eq:ReLU}), it can be shown that already a "two-layer MLP can approximate an arbitrary continous mapping arbitrarily closely if there is no limit to the number of hidden nodes" \cite{Michie-et-al-1994}. This property of neural networks is also known as universal function approximation.
+After defining one layer, a layer can be followed by another and so on. The overall length of the chain gives the depth of the model. From this terminology, the name deep learning arose. The first layer of a network is the "input layer", while the last one is the "output layer". Those two layers have fixed sizes, since the input and the output data of a network has a defined size. All layers between them are called hidden layers. These layers are called hidden since they are neither visible to the inputs nor the outputs. Different to the the input and output layers, their size is not fixed. They are generally used to form a \textit{bottleneck}, forcing the network to make a simple model of the system with the ability to generalise to previously unseen patterns (test data) \cite{Michie-et-al-1994}. By using non-linear activation functions, such as softmax (equation \ref{eq:softmax}) or rectifier linear unit (ReLU) (equation \ref{eq:ReLU}), it can be shown that already a "two-layer MLP can approximate an arbitrary continous mapping arbitrarily closely if there is no limit to the number of hidden nodes" \cite{Michie-et-al-1994}. This property of neural networks is also known as universal function approximation.
 \begin{align}
 	\phi_{i}(\underline{a}) = \frac{e^{a_{i}}}{\sum_{j=1}^{c}e^{a_{j}}} \label{eq:softmax}\\
 	\phi_{i}(a_{i}) = \begin{cases} 1 & a_{i} > 0\\0 & a_{i} \leq 0\\ \end{cases} \label{eq:ReLU}
@@ -368,49 +371,135 @@ Training (optimizing) a neural network is a difficult task and suffers from a nu
         \bottomrule
     \end{tabular}
 \end{table}
-As mentioned in \cite{DeepLearningDive}, optimization provides a way to minimize the loss function for deep learning, but, in essence, the goals of optimization and deep learning are different. In pure optimization, we want to minimize the (training) loss function. But in deep learning, we focus on minimizing the generalization error, which is the value of the loss function computed on new, unseen data (test data). Thus it is important to regularly apply test data to the network while training, to see if the network is overfitted to the training data. This means, the error on the training data is very small in comparison to the test/generalization error. There are various methods to ensure overfitting does not take place, i.e. dropout or regularization (\cite{Goodfellow-et-al-2016}, \cite{Nielsen-Michael}, \cite{DeepLearningDive}, \cite{Bishop}).
+As mentioned in \cite{DeepLearningDive}, optimization provides a way to minimize the loss function for deep learning, but, in essence, the goals of optimization and deep learning are different. In pure optimization, we want to minimize the (training) loss function. But in deep learning, we focus on minimizing the generalization error, which is the value of the loss function computed on new, unseen data (test data). Thus it is important to regularly apply test data to the network while training, to see if the network is overfitted to the training data. This means, the error on the training data is very small in comparison to the test/generalization error. There are various methods to ensure overfitting does not take place, i.e. dropout or regularization (\cite{Goodfellow-et-al-2016}, \cite{Nielsen-Michael}, \cite{DeepLearningDive}, \cite{Bishop}).\\
 \section{Unsupervised Learning}
+This chapter will give an overview of unsupervised learning and will go into more detail about two main tasks of unsupervised learning: dimensionality reduction/representation learning and clustering.\\
+Unsupervised learning offers the possibility of exploring structure of data without guidance in the form of class information, which leads to the name "unsupervised". In comparison to supervised or semi-supervised learning, no class information (no labels) are available while training. This can "often reveal features not previously expected or known about" \cite{Michie-et-al-1994}.\\
+In the task dimensionality reduction or representation learning, the task is to find a representation of the original data in a lower dimensional feature space. So it offers a model of the data in fewer parameters than were required to store the entire training dataset. This has big advantages for storing, coding and transmitting data. After learning the hidden representations by an encoding and decoding form, some models are able to generate new data with same characteristic as the original data when required. These models are called generative models.\\
+When having datasets without labels, in most applications it is relevant to cluster similar data points together. Therefore clustering can be applied. Intuitively, it is assumed that inter-points similarities are high in a group of data points which belong to the same cluster and vice-versa. The similarity measure could be any kind of measure, i.e. euclidean distance or a probability value (probability belonging to a cluster). Popular clustering techniques are K-means clustering \cite{Lloyd82leastsquares}, DBSCAN \cite{Ester96adensity-based} or Gaussian Mixture Model (GMM) \cite{Gilles07MixtureModelsforClassification}. In Image segmentation, the original image has already a high dimensional. Even "small" pictures, i.e. 32x32 images, have a 1024-dimensional feature space. In a high-dimensional feature space, similarity measures as euclidean distance are getting weaker to find similarities, also known as the course of dimensionality (first introduced by \cite{Bellman34}). Due to this, and the idea of clustering data based on relevant extracted features, the state-of-the art for clustering is not using the original data, but extract relevant features by applying dimensionality reduction/representation learning to the data, and use a clustering algorithm on the "bottleneck" representation of the data (the so called latent space).
 \subsection{Dimensionality Reduction/Representation Learning}
-\subsection{Clustering}
+As mentioned above, we want to reduce the dimensionality of the original data but still have meaningful representations of it. Generally, we want a good representation of the data, which is "one that makes a subsequent learning task easier" \cite{Goodfellow-et-al-2016}. In the objective of this work, the subsequent learning task is classification. In this work, we use autoencoder models and variations of it for this task. Figure \ref{fig:Autoencoder} illustrates the general architecture of an autoencoder with input image $\underline{x}$, the latent representation $\underline{z}$ of the data and the reconstructed image $\underline{\hat{y}}$. As ground truth for the loss calculation the original image is used and compared to the reconstructed one. This loss is called the reconstruction loss $L_{r}$.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.6\linewidth]{Graphiken/Autoencoder_Architecture}
+	\caption{General architecture of an autoencoder}
+	\label{fig:Autoencoder}
+\end{figure}
+As seen in figure \ref{fig:Autoencoder}, the autoencoder consists of two parts, the encoder and decoder. The encoder can be seen as feature-extracting function $f_{\underline{\theta}}$ which will allow a straightforward and efficient computation of a feature vector $\underline{z} = f_{\underline{\theta}}(\underline{x})$ from an input $\underline{x}$. For each sample $\underline{x}(n), n \in [1,N]$ we define $\underline{z}(n)$ as our feature-vector/representation/code/embedding or latent variable from $\underline{x}(n)$ (see equation \ref{eq:Embedding_z}). 
+\begin{align}
+	\underline{z}(n) = f_{\underline{\theta}}(\underline{x}(n))\label{eq:Embedding_z}
+\end{align}
+The decoder function $g_{\underline{\theta}}$ maps from latent space back into the original input space producing the so-called reconstruction $\underline{r}$, which is defined in equation \ref{eq:Reconstruction}.
+\begin{align}
+	\underline{r} = g_{\underline{\theta}}(\underline{z}) = g_{\underline{\theta}}(f_{\underline{\theta}}(\underline{x}(n)))\label{eq:Reconstruction}
+\end{align}
+The set of parameters $\underline{\theta}$ of the encoder and decoder are learned simultaneously on the task of reconstructing the original input as well as possible, minimizing the reconstruction loss $L_{r}(\underline{x},\underline{r})$.\\
+Mostly (also in this work), undercomplete or regularized autoencoders are used. These architectures ensure a dimensionality reduction by using a bottleneck, i.e. $d_{\underline{z}} << d_{\underline{x}}$. This one the one hand clearly achieves a dimensionality reduction, but this architecture is also helpful in terms of overfitting. When $d_{\underline{z}} \geq d_{\underline{x}}$, this can allow the autoencoder to simply duplicate the input in the features, thus achieving (nearly) perfect reconstruction without having extracted more meaningful features \cite{Bengio-et-al-2013}.\\
+In our work, we focus on achieving meaningful latent representations $\underline{z}$ since these latent representations will further be used as input for our clustering step. More details about the detailed architecture of the dimensionality reduction/representation learning part of our model will be discussed in the corresponding sections.
+\subsection{Clustering algorithm}
+The main objective of clustering is to separate data into groups of similar data points. Clustering algorithms have in principal be able to answer two questions:
+\begin{enumerate}
+	\item Which samples belongs to the same cluster?
+	\item How man clusters exist in the dataset?
+\end{enumerate}
+Based on these questions, we can split between two kinds of clustering algorithms. The first kind of algorithm can't answer question 2. They need as a-priori information the number of clusters in the dataset. Examples for this kind of algorithms are k-means \cite{Lloyd82leastsquares}, fuzzy c-means \cite{Bezdek81fuzzycmenas} or Gaussian Mixture Model (GMM) \cite{Gilles07MixtureModelsforClassification}.\\
+The second kind does not need this information, these algorithms are constructed to find the number of clusters while the clustering process by itself. Examples for this kind of algorithms are DBSCAN \cite{Ester96adensity-based} or mean-shift clustering \cite{Fukunaga75mean-shift}.\\
+In this work, the clustering algorithms k-means and GMM are used, since they are typically used for the clustering step in state-of-the-art clustering models. These two algorithms will be explained in more detail in the following sub sections.
+\subsubsection{K-means Clustering}
+As already described the problem for clustering is identifying groups (or clusters) of data points in a d-dimensional space. Given the number of clusters as $K$, big inter-samples similarities within a cluster compared to the samples of another cluster are desired. To measure the similarity from a sample to a cluster a cluster representation, the cluster center $\underline{\mu}_{k}$ for each cluster, is defined. Following this, the samples are assigned to the clusters, which will be done by assigning each sample to the cluster with the nearest center (nearest-mean assignment). This will be expressed by a binary indicator variable $r_{nk}$, where $r_{nk} = 1$ if the sample $\underline{x}_{n}$ is assigned to cluster $k$ and $r_{nk} = 0$ otherwise. After this, an objective function can be defined, given in equation \ref{eq:kMeans_Objective} with $sim(\underline{x}_{n}, \underline{\mu}_{k})$ could be any similarity or dissimilarity metric (i.e. euclidean distance or cosine similarity).
+\begin{align}
+J = \sum_{n=1}^{N} \sum_{k=1}^{K} r_{nk} sim(\underline{x}_{n}, \underline{\mu}_{k})\label{eq:kMeans_Objective}
+\end{align}
+As an example, the squared euclidean distance is chosen as dissimilarity metric (equation \ref{eq:squared_euclidean_distance}).
+\begin{align}
+sim(\underline{x}_{n}, \underline{\mu}_{k}) = ||\underline{x}_{n} - \underline{\mu}_{k}||^{2}\label{eq:squared_euclidean_distance}
+\end{align}
+Having a measure for the dissimilarity, we can define the cluster assignment as following (equation):
+\begin{align}
+r_{nk} = \begin{cases} 1 & if\ k = arg\ \underset{j}\min ||\underline{x}_{n} - \underline{\mu}_{j}||^{2}\\0 & otherwise\end{cases}\label{eq:sample_clusterassignment}
+\end{align}
+Using the defined formulas, the goal is to find values for $r_{nk}$ and $\underline{\mu}_{k}$ to minimize $J$. This can be done by an iterative procedure where every iteration contains of two steps. First fix $\underline{\mu}_{k}$ and assign the samples to the cluster centers, so update $r_{nk}$ to minimize J. In the second step fix $r_{nk}$ and update $\underline{\mu}_{k}$. This can be done for a defined number of iterations or until convergence (no change in cluster assignments) \cite{Bishop}.\\
+The algorithm is summarized in the following \cite{LectureNotes_DPR}:
+\begin{description}
+	\item[Given]\hfill \\
+		samples $S = \lbrace\underline{x}_{1},...,\underline{x}_{N}\rbrace$
+	\item[Parameter]\hfill \\
+		number of clusters $k$
+	\item[Initialization]\hfill \\
+		Initialization of cluster centers\\
+		$i = 0$
+	\item[Do]\hfill
+		\begin{itemize}
+			\item get $k$ clusters $S_{i}$ by assigning each $\underline{x}_{n}$ to the nearest center (mean of cluster) $\underline{\mu}_{j}$ (nearest-mean classifier)
+			\item recompute the cluster centers (equation \ref{eq:cluster_center_update})
+				\begin{align}
+					\underline{\mu}_{j} = \dfrac{1}{|S_{i}|} \sum_{\underline{x}_{n} \in S_{i}}\underline{x}_{n}\label{eq:cluster_center_update}
+				\end{align}
+			\item i+1
+		\end{itemize}
+	\item[Until] no change in clusters $S_{i}$ or $i \geq max\_iter$
+\end{description}
+It is obvious, that the convergence time of the algorithm is sensitive to the choice of the initial cluster centers. An naive (and fast) approach is to randomly choose samples out of $S$ to initialize the cluster centers. Nevertheless, there are more improved initialization schemes available (\cite{Yi10ImprovedInitialization}, \cite{Arthuer07kmeans_plusplus}).
+\subsubsection{Gaussian Mixture Model}
+Gaussian Mixture Models (GMMs) can be used for clustering. It is a probabilistic approach. Each cluster will be described by its estimated centroids (or mean) $\hat{\underline{\mu}}_m$, estimated covariance matrix $\hat{\mathbf{C}}_m$ and the mixture weights $\hat{\alpha}_m$ with $\sum_{m=1}^{M}\hat{\alpha}_m=1$, which can be interpreted as estimated (relative) size of the clusters. Instead of identifying cluster assignments by determine the "nearest" (or most similar) cluster (as in k-means), we fit a set of $M$ Gaussian distributions to the data. The number of applied gaussians $M$ is also called the model order. The above introduced parameters of the distributions are learned by the EM-algorithm \cite{Dempster-et-al-1977}. After learning this parameters, we can calculate the probabilities of each sample and perform an assignment based on these probability values. The probability density function $p_m$ follows a normal distribution as in equation \ref{eq:GMM_distribution} \cite{Bishop}.
+\begin{align}
+	p_m(\underline{x}_n) = \hat{\alpha}_m\mathcal{N}(\underline{x}_n|\hat{\underline{\mu}}_m, \hat{\mathbf{C}}_m)\label{eq:GMM_distribution}
+\end{align}
+The probability of a sample $\underline{x}_n$ belonging to the cluster $m$ is the corresponding posterior probability $q_{m,n} = P(z_n = m|\underline{x}_n;\hat{\underline{\theta}})$ with $z_n$ is the assignment of sample $\underline{x}_n$ to cluster $m$. So this denotes the probability for sample $\underline{x}_n$ belonging to cluster $m$. The posterior can now be calculated with formula \ref{eq:GMM_distribution}, leading to equation \ref{eq:GMM_posterior}.
+\begin{align}
+	q_{m,n} = \dfrac{\hat{\alpha}_mp_m(\underline{x}_n|\hat{\underline{\theta}}_m)}{\sum_{m=1}^{M}\hat{\alpha}_mp_m(\underline{x}_n|\hat{\underline{\theta}}_m)}\label{eq:GMM_posterior}
+\end{align}
+The estimated mixture weights $\hat{\alpha}_m$ can be thus calculated as in equation \ref{eq:GMM_mixtureweights} with formula \ref{eq:GMM_posterior}.
+\begin{align}
+	\hat{\alpha}_m = \dfrac{1}{N}\sum_{n=1}^{N}q_{m,n}\label{eq:GMM_mixtureweights}
+\end{align}
+Another weight parameter, $w_{m,n}$ is introduced. This weight parameter is defined for each sample/cluster combination. It can be seen as a posterior probability, that the component $m$ was responsible for generating $\underline{x}_n$ \cite{Bishop}. Formula \ref{eq:GMM_sampleweights} shows the calculation of $w_{m,n}$.
+\begin{align}
+	w_{m,n} = \dfrac{q_{m,n}}{\sum_{n=1}^{N}q_{m,n}}\label{eq:GMM_sampleweights}
+\end{align}
+After defining the weight parameter $w_{m,n}$ we can now update the corresponding parameters from the defined Normal distribution. Therefore, the mean vector (equation \ref{eq:GMM_meanupdate}) and the covariance matrix (equation \ref{eq:GMM_covarianceupdate}) are updated for each cluster $m$.
+\begin{align}
+	\hat{\underline{\mu}}_m = \sum_{n=1}^{N}w_{m,n}\underline{x}_n\label{eq:GMM_meanupdate}\\
+	\hat{\mathbf{C}}_m = \sum_{n=1}^{N}w_{m,n}(\underline{x}_n-\hat{\underline{\mu}}_m)(\underline{x}_n-\hat{\underline{\mu}}_m)^{T}\label{eq:GMM_covarianceupdate}	
+\end{align}
+The above introduced formulas can now be executed iteratively, which then leads to the Expectation Maximization algorithm, also denoted as EM-algorithm. It can be done until a given number of iterations is reached or the update step $||\hat{\underline{\theta}}(k+1) - \hat{\underline{\theta}}(k)||$ is below a certain threshold. In the following the EM-algorithm is shortly summarized \cite{LectureNotes_DPR}.
+\begin{description}
+	\item[Given]\hfill \\
+		N samples $\underline{x}_{1},...,\underline{x}_{N}$
+	\item[Parameter]\hfill \\
+		model order (number of clusters) $M$
+	\item[Initialization]\hfill \\
+		$\hat{\alpha}_m(0),\ \hat{\underline{\mu}}_m(0),\ \hat{\mathbf{C}}_m(0)$ ($1 \leq m \leq M)$\\
+		$k = 0$
+	\item[Do]  for $1 \leq m \leq M$ and $1 \leq n \leq N$\hfill
+		\begin{itemize}
+			\item calculate the posterior $q_{m,n}(k)$ by equation \ref{eq:GMM_posterior} with $\hat{\alpha}_m(k)$ and $\hat{\underline{\theta}}_m(k)$
+			\item calculate $\hat{\alpha}_m(k+1)$ by equation \ref{eq:GMM_mixtureweights} with $q_{m,n}(k)$
+			\item calculate $w_{m,n}(k)$ by equation\ref{eq:GMM_sampleweights} with $q_{m,n}(k)$
+			\item calculate $\hat{\underline{\mu}}_m(k+1)$ by equation \ref{eq:GMM_meanupdate} with $w_{m,n}(k)$
+			\item calculate $\hat{\mathbf{C}}_m(k+1)$ by equation \ref{eq:GMM_covarianceupdate} with $w_{m,n}(k)$ and $\hat{\underline{\mu}}_m(k+1)$
+			\item k+1
+		\end{itemize}
+	\item[Until] $||\hat{\underline{\theta}}(k+1) - \hat{\underline{\theta}}(k)|| < threshold$ or $i \geq max\_iter$
+\end{description}
+It should be mentioned that there is no guarantee that the EM algorithm will converge to the desired global maximum of the likelihood, but it is ensured, that each iteration of the EM algorithm will not decrease the value of the likelihood.\\
+After the EM algorithm, the samples $\underline{x}_n$ can be clustered by using the GMM parameters. Each samples will be assigned to the cluster for which the sample has its highest posterior probability $q_{m,n}$, as given in formula \ref{eq:GMM_Clusterassignment}, which corresponds to a Maximum-Likelihood decision.
+\begin{align}
+	arg\ \underset{m}\max\ q_{m,n}\label{eq:GMM_Clusterassignment}
+\end{align}
+The convergence of the EM algorithm directly depends on its initialization. In general, an improvement can be achieved by repeating the initialization several time and select the best GMM parameter estimate. A possible way to find the initial values $\hat{\alpha}_m(0),\ \hat{\underline{\mu}}_m(0),\ \hat{\mathbf{C}}_m(0)$ ($1 \leq m \leq M)$ is choosing randomly $M$ samples from all $N$ training samples as initial guess for $\hat{\underline{\mu}}_m(0)$. $\hat{\mathbf{C}}_m(0)$ are assumed to be diagonal and identical. The diagonal elements of $\hat{\mathbf{C}}_m(0)$ are then estimated from the sample variances of the $M$ selected training samples. For the initial mixture weights, a uniform distribution of the clusters is assumed, so $\hat{\alpha}_m(0) = 1/M$. Another possibility for initialization is using k-means clustering first to find initial values for the initial means $\hat{\underline{\mu}}_m(0)$ and then continue as above \cite{LectureNotes_DPR}.
 \chapter{Working Environment (Framework)}
 \section{Tensorflow}
 \section{Framework}
 \chapter{Preliminary Architectures and Algorithm}
 \section{Autoencoder}
 \section{Variational Autoencoder}
-\section{kMeans}
-\section{Gaussian Mixture Model}
 \section{IDEC}
 \chapter{Experimental Setup}
 \section{Datasets}
 \section{Investigated Hyperparameters}
 \chapter{Results}
 \chapter{Summary and Outlook}
-
-Then we include a graphic in figure \ref{mind} and information about captions in table \ref{captions}.\\
-\begin{figure}
-	\centering
-	\includegraphics[scale=.3]{isslogocolor}
-	\caption{A beautiful mind}
-	\label{mind}
-\end{figure}
-
-\begin{table}
-    \centering
-    \caption{Where to put the caption}
-    \label{captions}
-    \begin{tabular}{lcc}
-         & above & below\\
-        for figures & no & yes\\
-        for tables & yes & no\\
-    \end{tabular}
-\end{table}
-
-
-Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
-\newpage
-Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
-
 
 \appendix
 \chapter{Additionally}
