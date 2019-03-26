@@ -32,6 +32,7 @@ def encoder(encoder_input, is_training, params):
     x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.nn.leaky_relu(x, alpha=0.2)
     print(x.get_shape())
+    #x = tf.layers.max_pooling2d(x, 2, 2)
     x = tf.layers.conv2d(x, filters=128, kernel_size=2, strides=2, padding='same',
                          kernel_initializer=tf.contrib.layers.xavier_initializer())
     x = tf.layers.batch_normalization(x, training=is_training)
@@ -104,8 +105,8 @@ def build_model(inputs, is_training, params):
 
     #dyn_rage = tf.reduce_max(original_img) - tf.reduce_min(original_img)
     #ssim_loss = tf.reduce_mean(1 - (tf.image.ssim(original_img, tf.sigmoid(reconstructed_mean), max_val=dyn_rage)+1.0)/2.0)  # bring it to 0-1 format
-    #loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
-    loss_square = tf.norm(original_img-tf.sigmoid(reconstructed_mean))
+    loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
+    #loss_square = tf.norm(original_img-tf.sigmoid(reconstructed_mean))
 
     return loss_square, sampled, reconstructed_mean
 
@@ -143,16 +144,15 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
     # Create Similarity matrix of original images
     # Used for discrimintaive Loss
 
-    z = tf.reshape(inputs["img"], shape=[-1, params.resize_height, params.resize_width, params.channels])
-    z = z/tf.norm(z, ord=1)
-    z_flat = tf.contrib.layers.flatten(z)
-    sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True)
+    z = tf.reshape(inputs["img"], shape=[-1, params.resize_height*params.resize_width*params.channels])
+    z_flat = z/tf.norm(z, ord=1)
+    sim_original_img = tf.matmul(z_flat, z_flat, transpose_b=True) # tf.tensordot(z, tf.transpose(z), axes=3)
     #dyn_rage = tf.reduce_max(z) - tf.reduce_min(z)
     #sim_original_img = tf.image.ssim(z, z, max_val=dyn_rage)
     sum_anchor = (tf.shape(sampled)[-1])//params.k
     _, anchor_idx = tf.nn.top_k(sim_original_img, k=sum_anchor)
 
-    z = sampled/tf.norm(sampled, ord=1)
+    z = sampled / tf.norm(sampled, ord=1) # tf.reshape(tf.reduce_sum(sampled, axis=1), (-1, 1))
     C_ij = tf.matmul(z, z, transpose_b=True)
     anchor_val = tf.gather(C_ij, anchor_idx)
 

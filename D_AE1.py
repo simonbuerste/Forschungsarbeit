@@ -74,11 +74,11 @@ def encoder(encoder_input, is_training, params, sigma):
     x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.nn.leaky_relu(x, alpha=0.2)
     print(x.get_shape())
-    x = tf.layers.average_pooling2d(x, 2, 2)
-    # x = tf.layers.conv2d(x, filters=128, kernel_size=2, strides=2, padding='same',
-    #                      kernel_initializer=tf.contrib.layers.xavier_initializer())
-    # x = tf.layers.batch_normalization(x, training=is_training)
-    # x = tf.nn.leaky_relu(x, alpha=0.2)
+    # x = tf.layers.max_pooling2d(x, 2, 2)
+    x = tf.layers.conv2d(x, filters=128, kernel_size=2, strides=2, padding='same',
+                          kernel_initializer=tf.contrib.layers.xavier_initializer())
+    x = tf.layers.batch_normalization(x, training=is_training)
+    x = tf.nn.leaky_relu(x, alpha=0.2)
 
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
@@ -147,10 +147,11 @@ def build_model(inputs, is_training, params):
     reconstructed_mean = decoder(sampled, is_training, params, sigma)
 
     dyn_rage = tf.reduce_max(original_img) - tf.reduce_min(original_img)
-    ssim_loss = tf.reduce_mean(1 - (tf.image.ssim(original_img, tf.sigmoid(reconstructed_mean), max_val=dyn_rage)+1.0)/2.0)  # bring it to 0-1 format
+    ssim_loss = tf.reduce_mean(1.0 - (tf.image.ssim(original_img, tf.sigmoid(reconstructed_mean), max_val=dyn_rage)+1.0)/2.0)  # bring it to 0-1 format
 
     loss_square = tf.losses.mean_squared_error(labels=original_img, predictions=tf.sigmoid(reconstructed_mean))
     #loss_square = tf.norm(original_img-tf.sigmoid(reconstructed_mean))
+    #loss_square = ssim_loss
 
     return loss_square, sampled, reconstructed_mean, sigma
 
