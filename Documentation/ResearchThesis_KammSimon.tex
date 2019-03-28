@@ -506,12 +506,51 @@ The implemented framework is used to have an easy comparison of different models
 		\end{description}
 \end{enumerate}
 The desired dataset, feature extraction model and clustering algorithm is selected when executing the program by argument parsers. Based on the selected combination and time, the summaries from training and evaluation are stored in a folder with unique naming. Also the parameters are stored there, so the results can be reproduced easily. The implemented models will be introduced in the next chapter.
-\chapter{Preliminary Architectures and Algorithm}
+\chapter{Model Architectures and Algorithm}
+In this chapter, the implemented and evaluated architectures and algorithms will be explained in detail. Therefore, the corresponding loss functions, the training procedure and also model-related hyperparameters are introduced. The most parts are models for representation learning and so used as feature extractor. They base on autoencoder structure, but all slightly differ. Also, one additional clustering algorithm (in addition to the already introduced k-means and gmm clustering algorithm), the Improved Deep Embedding Clustering (IDEC) algorithm is introduced.
 \section{Autoencoder}
+The general architecture of an autoencoder (figure \ref{fig:Autoencoder}), the formulation for the latent space $\underline{z}(n)$ (formula \ref{eq:Embedding_z}) and the reconstruction $\underline{r}$ (formula \ref{eq:Reconstruction}) is already introduced. To achieve a meaningful latent representation, we use undercomplete autoencoder to force the model to capture the most important features of the input data \cite{LectureNotes_DeepLearning}. Thus we have a bottleneck of a parametrized size $n\_latent$, so $\underline{z}(n) \in \mathbb{R}^{n\_latent}$. \cite{Bengio-et-al-2013} states, "one can view the objective of the regularization applied to an autoencoder as making the representation as "constant" (insensitive) as possible with respect to changes in input". For our tasks, this means that i.e. when clustering between dogs and cats, different kind of dogs should be mapped to a similar representation, so this representation should be as "constant" as possible.\\
+In this work, we use deep autoencoder models with convolutional and deconvoluational layers, a Deep Convolutional Autoencoder \cite{DeepCAE}. By this, it takes advantage of the properties of a convolutional neural network (CNN). The local connections and parameter sharing of a convolutional layer distinguish a CNN to have a property in translation latent features \cite{Goodfellow-et-al-2016}. Thus, by using a CNN-structure, we have a certain locality in feature calculation, which means that only a small neighbourhood of pixels will be used for computation. This is a good property for images, since often the features (i.e. edges) are occurring in a certain neighbourhood. The encoder-decoder structure of the used autoencoder is given in figure \ref{fig:AE_ModelArchitecture} with example dimensions at each layer for an input image of size $32x32x1$.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.9\linewidth]{Graphiken/Autoencoder_Model}
+	\caption{Autoencoder Model Architecture}
+	\label{fig:AE_ModelArchitecture}
+\end{figure}
+\textit{CL} is a convolutional layer with the kernel size \textit{K}, the filters \textit{F} and the Stride \textit{S}. The \textit{flatten}-layer flattens the input to a 1d-vector. FCL is a fully connected layer which maps the input to the desired latent space size $n\_latent$, in the example this value is $10$. The decoder part is the mirrored encoder part with \textit{Reshape} reshapes the 1d-vector to its pervious size. \textit{CL\_T} are transposed convolutional layer with the same parameters as \textit{CL}. Transposed convolution is also known as \textit{fractionally-strided convolution} or \textit{deconvolution}. These layers are used to upsample the data by using a corresponding stride \cite{DeepLearningDive}. One convolutional layer $l$ is exemplary drawn in figure \ref{fig:Conv_layer}.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{Graphiken/ConvolutionalLayer}
+	\caption{Covlutional Layer with its elements}
+	\label{fig:Conv_layer}
+\end{figure}
+Each convolutional layer \textit{CL} of the model consists of several parts. They are listed and explained below.\\
+\begin{description}
+	\item[Convolution]\hfill \\
+The 2-dimensional convolution takes place here. The input $\mathbf{X}_{l-1}$ of layer $l$ contains $D_{l-1}$ 2D feature maps of size $M_l\ x\ N_{l-1}			$. The convolution layer has $D_l$ kernels to calculate 2D feature maps of size $M_l\ x\ N_l$. Each kernel contains $D_{l-1}$ 2D filters of size $K_l\ 		x\ K_l$, each performing a sliding window convolution over the whole input.
+	\item[Batch normalization]\hfill \\
+Batch normalization, proposed by \cite{Ioffe15BatchNorm} in 2015, can be used to improve convergence of a deep neural network at training. Batch 				Normalization does a zero-mean unit-variance normalization for all elements of an activation $\underline{a}_l(n)$ for one minibatch $t$. It reduces the amount by what the hidden unit values shift around (known as covariance shift). As mentioned the activations are approximately rescaled to zero-mean and unit-variance. Since this may not be what is wanted, i.e. in some cases the activations need to differ from standardized data, some scaling coefficient $\gamma$ and an offset $\beta$ are introduced. The equation of Batch Normalization for one layer with input activation $\underline{a}_l$ is given in formula \ref{eq:batchnormalization} with the introduced parameters $\underline{\gamma}$ and $\underline{\beta}$ and $\epsilon > 0$ is a small number (i.e. $10^{-5}$) to avoid division-by-zero. The calculation of the estimated mean $\underline{\hat{\mu}}_L$ and variance $\underline{\hat{\sigma}}_L$ for a minibatch $t$ at layer $l$ with  $N$ samples are given in formula \ref{eq:batchmean} and \ref{eq:batchvariance}.
+\begin{align}
+	BN(\underline{a}_l) = \underline{\gamma}_l\dfrac{\underline{a}_l-\underline{\hat{\mu}}_l}{\sqrt{\underline{\hat{\sigma}}_{l}^{2}+\epsilon}}+\underline{\beta}_l\label{eq:batchnormalization}\\
+	\underline{\hat{\mu}}_l(t) = \dfrac{1}{N}\sum_{n=1}^{N}\underline{a}_l(n)\label{eq:batchmean}\\
+	\underline{\hat{\sigma}}_{l}^{2}(t) = \dfrac{1}{N-1}\sum_{n=1}^{N}(\underline{a}_l(n)-\underline{\hat{\mu}}_l(t))^{2}\label{eq:batchvariance}
+\end{align}		
+The parameters $\underline{\gamma}$ and $\underline{\beta}$ are learned together with the network parameters $\theta$. This parametrization is easier to learn, since the offset and range of $\underline{a}_l$ is explicitly modelled by those parameters and is not determined by all previous layers in a hidden and complicated way. By normalizing the activation of a layer, the following layers can learn itself a little bit more independently of other layers. In addition, higher learning rates can be used because the batch normalization ensures that there's no activation that's gone really high or really low (risk for vanishing/exploding gradient). Another property of batch normalization is the reducing of overfitting, because it has a slight regularization effect \cite{DeepLearningDive}, \cite{LectureNotes_DeepLearning}.
+	\item[Leacky ReLU activation function]\hfill \\
+	The leacky ReLU \cite{Xu15LReLU} is an activation out of the family of rectifier linear units (formula \ref{eq:ReLU}). These ReLU activation functions are currently one of the most popular in deep neural network architecture due to its low calculation complexity and differentiability. The leacky ReLU, as defined in equation \ref{eq:leackyReLU}, ensures a non-zero gradient for $ a < 0$ due to its factor $\xi >> 0$.
+	\begin{align}
+		\phi(a) = \begin{cases} a & a > 0\\ \dfrac{a}{\xi} & a \leq 0\\ \end{cases} \label{eq:leackyReLU}
+	\end{align}	
+	\item[Max-Pooling]
+\end{description}
+\subsection{Discriminative Autoencoder}
+\subsection{Feature-selective Autoencoder}
 \section{Variational Autoencoder}
+\subsection{Gumbel Variational Autoencoder}
 \section{IDEC}
 \chapter{Experimental Setup}
 \section{Datasets}
+\section{Metrics and Visualization}
 \section{Investigated Hyperparameters}
 \chapter{Results}
 \chapter{Summary and Outlook}
