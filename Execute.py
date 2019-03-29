@@ -4,7 +4,7 @@ import time
 import json
 
 n_latent = [10, 32, 64, 128, 256]
-filter_first_layer = [8, 16, 32, 128] # 64 already checked
+filter_first_layer = [8, 16, 32, 64, 128] # 64 already checked
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 

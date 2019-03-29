@@ -53,17 +53,17 @@ def selfattentionlayer(x, name_scope, sigma):
 def encoder(encoder_input, is_training, params, sigma):
     x = tf.reshape(encoder_input, shape=[-1, params.resize_height, params.resize_width, params.channels])
     print('-------Encoder-------')
-    for k in range(4):
+    for k in range(5):
         print(x.get_shape())
-        x = tf.layers.conv2d(x, filters=params.filter_first_layer*(2**k), kernel_size=4, strides=1, padding='same',
+        x = tf.layers.conv2d(x, filters=min(params.filter_first_layer*(2**3), params.filter_first_layer*(2**k)), kernel_size=4, strides=1, padding='same',
                          kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
-        if k < 3:
-            x = tf.layers.max_pooling2d(x, 2, 2)
+        #if k < 3:
+        x = tf.layers.max_pooling2d(x, 2, 2)
 
     # last layer average pooling
-    x = tf.layers.average_pooling2d(x, 4, 4)
+    #x = tf.layers.average_pooling2d(x, 4, 4)
 
     print(x.get_shape())
     x = tf.contrib.layers.flatten(x)
@@ -92,13 +92,13 @@ def decoder(sampled_z, is_training, params, sigma):
 
     # x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
     # x = tf.layers.batch_normalization(x, training=is_training)
-    x = tf.layers.conv2d_transpose(x, filters=params.filter_first_layer*(2**(3-1)), kernel_size=4, strides=4, padding='same',
+    x = tf.layers.conv2d_transpose(x, filters=params.filter_first_layer*(2**3), kernel_size=4, strides=2, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer())
     x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.nn.leaky_relu(x, alpha=0.2)
     print(x.get_shape())
-    for k in range(2):
-        x = tf.layers.conv2d_transpose(x, filters=max(params.filter_first_layer, params.filter_first_layer*(2**(3-k-2))), kernel_size=4, strides=2, padding='same',
+    for k in range(3):
+        x = tf.layers.conv2d_transpose(x, filters=max(params.filter_first_layer, params.filter_first_layer*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                           kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
