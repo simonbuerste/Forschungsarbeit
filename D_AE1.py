@@ -82,8 +82,8 @@ def decoder(sampled_z, is_training, params, sigma):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
 
-    reshaped_dim = [-1, 2, 2, params.filter_first_layer*(2**3)]
-    inputs_decoder = int(2*2*params.filter_first_layer*(2**3))
+    reshaped_dim = [-1, params.resize_height//16, params.resize_width//16, params.filter_first_layer*(2**3)]
+    inputs_decoder = int((params.resize_height//16)*(params.resize_width//16)*params.filter_first_layer*(2**3))
     #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
     #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,

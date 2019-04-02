@@ -19,45 +19,43 @@ def gumbel_softmax(logits, temperature):
 
 def selfattentionlayer(x, iteration, sigma):
     batch_size, h, w, num_channels = x.get_shape().as_list()
-    location_num = h * w
-    downsampled_num = location_num // 4
-
-    reduced_channel = num_channels // 8
+    location_num = h*w
+    downsampled_num = location_num//4
+    reduced_channel = np.maximum(num_channels//8, 1)
 
     k_h = 1
     k_w = 1
     d_h = 1
     d_w = 1
 
-    w_f = tf.get_variable(name='w_f_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(),
-                          shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
-    w_g = tf.get_variable(name='w_g_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(),
-                          shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
-    w_h = tf.get_variable(name='w_h_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(),
-                          shape=[k_h, k_w, x.get_shape()[-1], num_channels])
-    w_attn = tf.get_variable(name='w_attn_%d' % iteration, initializer=tf.contrib.layers.xavier_initializer(),
-                             shape=[k_h, k_w, x.get_shape()[-1], num_channels])
+    for i in range(3):
+        w_f = tf.get_variable(name='w_f_' + name_scope + '_%d' % i, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
+        w_g = tf.get_variable(name='w_g_' + name_scope + '_%d' % i, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], reduced_channel])
+        w_h = tf.get_variable(name='w_h_' + name_scope + '_%d' % i, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], num_channels])
+        w_attn = tf.get_variable(name='w_attn_' + name_scope + '_%d' % i, initializer=tf.contrib.layers.xavier_initializer(), shape=[k_h, k_w, x.get_shape()[-1], num_channels])
 
-    theta = tf.nn.conv2d(x, w_f, strides=[1, d_h, d_w, 1], padding='SAME')
-    phi = tf.nn.conv2d(x, w_g, strides=[1, d_h, d_w, 1], padding='SAME')
-    g = tf.nn.conv2d(x, w_h, strides=[1, d_h, d_w, 1], padding='SAME')
+        theta = tf.nn.conv2d(x, w_f, strides=[1, d_h, d_w, 1], padding='SAME')
+        phi = tf.nn.conv2d(x, w_g, strides=[1, d_h, d_w, 1], padding='SAME')
+        g = tf.nn.conv2d(x, w_h, strides=[1, d_h, d_w, 1], padding='SAME')
 
-    phi = tf.layers.max_pooling2d(inputs=phi, pool_size=[2, 2], strides=2)
-    g = tf.layers.max_pooling2d(inputs=g, pool_size=[2, 2], strides=2)
+        phi = tf.layers.max_pooling2d(inputs=phi, pool_size=[2, 2], strides=2)
+        g = tf.layers.max_pooling2d(inputs=g, pool_size=[2, 2], strides=2)
 
-    theta = tf.reshape(theta, [-1, location_num, reduced_channel])
-    phi = tf.reshape(phi, [-1, downsampled_num, reduced_channel])
-    g = tf.reshape(g, [-1, downsampled_num, num_channels])
+        theta = tf.reshape(theta, [-1, location_num, reduced_channel])
+        phi = tf.reshape(phi, [-1, downsampled_num, reduced_channel])
+        g = tf.reshape(g, [-1, downsampled_num, num_channels])
 
-    attn = tf.matmul(theta, phi, transpose_b=True)
-    attn = tf.nn.softmax(attn)
+        attn = tf.matmul(theta, phi, transpose_b=True)
+        attn = tf.nn.softmax(attn)
 
-    attn_g = tf.matmul(attn, g)
-    attn_g = tf.reshape(attn_g, [-1, h, w, num_channels])
+        attn_g = tf.matmul(attn, g)
+        attn_g = tf.reshape(attn_g, [-1, h, w, num_channels])
+        if i == 0:
+            output = tf.nn.conv2d(attn_g, w_attn, strides=[1, d_h, d_w, 1], padding='SAME')
+        else:
+            output += tf.nn.conv2d(attn_g, w_attn, strides=[1, d_h, d_w, 1], padding='SAME')
 
-    # sigma = tf.get_variable('sigma_ratio_%d' % iteration, [], initializer=tf.constant_initializer(1.0))
-    output = tf.nn.conv2d(attn_g, w_attn, strides=[1, d_h, d_w, 1], padding='SAME')
-    return x + sigma * output
+    return x + sigma*output
 
 
 # Defining the Encoder
@@ -66,7 +64,7 @@ def encoder(encoder_input, is_training, params):
     print('-------Encoder-------')
     for k in range(4):
         print(x.get_shape())
-        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=4, strides=1, padding='same',
+        x = tf.layers.conv2d(x, filters=params.filter_first_layer*(2**k), kernel_size=4, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
@@ -99,8 +97,8 @@ def decoder(sampled_z, is_training, params):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
 
-    reshaped_dim = [-1, 2, 2, 16*(2**3)]
-    inputs_decoder = int(2*2*16*(2**3))
+    reshaped_dim = [-1, params.resize_height//16, params.resize_width//16, params.filter_first_layer*(2**3)]
+    inputs_decoder = int((params.resize_height//16)*(params.resize_width//16)*params.filter_first_layer*(2**3))
     #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
     #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
@@ -110,9 +108,10 @@ def decoder(sampled_z, is_training, params):
     print(x.get_shape())
 
     for k in range(3):
-        #x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
-        #x = tf.layers.batch_normalization(x, training=is_training)
-        x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
+        # if k == 0:
+        #     x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
+        #     x = tf.layers.batch_normalization(x, training=is_training)
+        x = tf.layers.conv2d_transpose(x, filters=max(params.filter_first_layer, params.filter_first_layer*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)

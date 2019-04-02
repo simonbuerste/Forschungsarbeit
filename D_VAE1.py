@@ -63,7 +63,7 @@ def encoder(encoder_input, is_training, params):
     print('-------Encoder-------')
     for k in range(4):
         print(x.get_shape())
-        x = tf.layers.conv2d(x, filters=16*(2**k), kernel_size=4, strides=1, padding='same',
+        x = tf.layers.conv2d(x, filters=params.filter_first_layer*(2**k), kernel_size=4, strides=1, padding='same',
                              kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
@@ -105,8 +105,8 @@ def decoder(sampled_z, is_training, params):
     print('-------Decoder-------')
     print(sampled_z.get_shape())
 
-    reshaped_dim = [-1, 2, 2, 16*(2**3)]
-    inputs_decoder = int(2*2*16*(2**3))
+    reshaped_dim = [-1, params.resize_height//16, params.resize_width//16, params.filter_first_layer*(2**3)]
+    inputs_decoder = int((params.resize_height//16)*(params.resize_width//16)*params.filter_first_layer*(2**3))
     #x = selfattentionlayer(sampled_z, 'decoder_0', sigma)
     #x = tf.layers.batch_normalization(x, training=is_training)
     x = tf.layers.dense(sampled_z, units=inputs_decoder, activation=lrelu,
@@ -116,9 +116,10 @@ def decoder(sampled_z, is_training, params):
     print(x.get_shape())
 
     for k in range(3):
-        #x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
-        #x = tf.layers.batch_normalization(x, training=is_training)
-        x = tf.layers.conv2d_transpose(x, filters=max(16, 16*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
+        # if k == 0:
+        #     x = selfattentionlayer(x, 'decoder_%d' % (k+1), sigma)
+        #     x = tf.layers.batch_normalization(x, training=is_training)
+        x = tf.layers.conv2d_transpose(x, filters=max(params.filter_first_layer, params.filter_first_layer*(2**(3-k-1))), kernel_size=4, strides=2, padding='same',
                                        kernel_initializer=tf.contrib.layers.xavier_initializer())
         x = tf.layers.batch_normalization(x, training=is_training)
         x = tf.nn.leaky_relu(x, alpha=0.2)
@@ -128,7 +129,7 @@ def decoder(sampled_z, is_training, params):
                                           kernel_initializer=tf.contrib.layers.xavier_initializer())
     #reconstructed_mean = tf.layers.conv2d_transpose(x, filters=params.channels, kernel_size=4, strides=2, padding='same',
     #                                      kernel_initializer=tf.contrib.layers.xavier_initializer())
-    
+
     print(reconstructed_mean.get_shape())
     print('-------Decoder-------')
     return reconstructed_mean
