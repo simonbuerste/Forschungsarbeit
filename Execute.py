@@ -62,5 +62,5 @@ for dataset in datasets:
         # execute the Training for all Datasets
         #p = subprocess.Popen('python3.6 Train.py --dataset=MNIST --gpu=2 --latent_model=AE')
         #p.wait()
-        os.system('python Train.py --dataset=%s --gpu=0 --latent_model=AE' % dataset)
+        os.system('python3.6 Train.py --dataset=%s --gpu=0 --latent_model=AE' % dataset)
         time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
