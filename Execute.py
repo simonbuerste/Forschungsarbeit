@@ -3,10 +3,10 @@ import subprocess
 import time
 import json
 
-datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-Dog", "IMAGENET-10"]
+datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10"] #, "IMAGENET-Dog"
 n_latent = [5, 10, 20, 32, 64, 128, 256]
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 for dataset in datasets:
     # adapt dataset specific parameters (i.e. train size, num_classes,...)
@@ -62,5 +62,5 @@ for dataset in datasets:
         # execute the Training for all Datasets
         #p = subprocess.Popen('python3.6 Train.py --dataset=MNIST --gpu=2 --latent_model=AE')
         #p.wait()
-        os.system('python3.6 Train.py --dataset=%s --gpu=0 --latent_model=AE' % dataset)
+        os.system('python3.6 Train.py --dataset=%s --gpu=3 --latent_model=AE --cluster_model=gmm' % dataset)
         time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
