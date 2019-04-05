@@ -77,27 +77,15 @@ def encoder(encoder_input, is_training, params):
     x = tf.contrib.layers.flatten(x)
     print(x.get_shape())
 
-    gaussian = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    categorical = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-
     # gaussian path
-    z_mu = tf.layers.dense(gaussian, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    z_log_sigma_sq = tf.layers.dense(gaussian, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    z_mu = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
+    z_log_sigma_sq = tf.layers.dense(x, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
     q_z = tf.distributions.Normal(loc=z_mu, scale=tf.sqrt(tf.exp(z_log_sigma_sq)))
     z = q_z.sample()
 
-    # categorical path
-    categorical = tf.layers.dense(categorical, units=params.n_latent//2, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    l = tf.layers.dense(categorical, units=params.k, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    c = gumbel_softmax(l, tf.constant(1.0))
-
-    z_ = tf.layers.dense(z, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-    c_ = tf.layers.dense(c, units=params.n_latent, kernel_initializer=tf.contrib.layers.xavier_initializer())
-
-    latent = z_ + c_
     print('-------Encoder-------')
 
-    return latent, c, z, q_z, sigma
+    return z, q_z, z_mu, z_log_sigma_sq
 
 
 # Defining the Decoder
@@ -139,8 +127,8 @@ def build_model(inputs, is_training, params):
 
     original_img = inputs["img"]
     # Bringing together Encoder and Decoder
-    latent, cat_sampled, z, q_z, sigma_placeholder = encoder(original_img, is_training, params)
-    reconstructed_mean = decoder(latent, is_training, params)
+    sampled, q_z, z_mu, z_log_sigma_sq = encoder(original_img, is_training, params)
+    reconstructed_mean = decoder(sampled, is_training, params)
 
     # Calculate log likelihood
     #loss_likelihood = original_img * tf.log(1e-10+ reconstructed_mean) + (1- original_img)*tf.log(1e-10+1-reconstructed_mean)

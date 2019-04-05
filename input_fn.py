@@ -80,6 +80,8 @@ def input_fn(data_dir, mode, params):
             params.num_classes = 20
         elif "IMAGENET-10" in filename:
             params.num_classes = 10
+        elif "IMAGENET-Dog" in filename:
+            params.num_classes = 15
         else:  # CIFAR-10 case
             params.num_classes = 10
 

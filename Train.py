@@ -30,14 +30,14 @@ tf.set_random_seed(230)
 config = tf.ConfigProto(inter_op_parallelism_threads=0, intra_op_parallelism_threads=0)
 config.gpu_options.allow_growth = True
 
-# model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models')
-model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
+model_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models')
+#model_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/'
 
-# data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
-data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
+data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Datasets')
+#data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data/'
 
-# restore_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models', 'AE_MNIST_kmeans_2019-03-07_14-50', 'best_weights')
-restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/b_AE_MNIST_kmeans_2019-03-15_17-16/best_weights'
+restore_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'Models', 'AE_MNIST_kmeans_2019-03-07_14-50', 'best_weights')
+#restore_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Models/b_AE_MNIST_kmeans_2019-03-15_17-16/best_weights'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default=model_dir,
@@ -48,12 +48,14 @@ parser.add_argument('--restore_from', default='best_weights',
                     help="Subdirectory of model dir or file containing the weights")
 parser.add_argument('--gpu', default=0,
                     help="Choose GPU on which the program should run")
-parser.add_argument('--latent_model', default='b_AE',
+parser.add_argument('--latent_model', default='AE',
                     help="Choose Model which is used for creating a latent space")
-parser.add_argument('--cluster_model', default='gmm',
+parser.add_argument('--cluster_model', default='kmeans',
                     help="Choose Model which is used for clustering")
 parser.add_argument('--dataset', default='MNIST',
                     help="Choose dataset which should be used")
+parser.add_argument('--Parameters', default='params.json',
+                    help="Naming of used Parameter file")
 
 
 if __name__ == '__main__':
@@ -64,7 +66,7 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu)
 
     script_dir = os.path.dirname(__file__)
-    json_path = os.path.join(script_dir, 'params.json')
+    json_path = os.path.join(script_dir, args.Parameters)
     params = Params(json_path)
 
     # get current time as string for saving of model

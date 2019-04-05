@@ -1,17 +1,28 @@
 import os
-import subprocess
 import time
 import json
+from shutil import copyfile
 
-datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10"] #, "IMAGENET-Dog"
-n_latent = [5, 10, 20, 32, 64, 128, 256]
+datasets = ["IMAGENET-Dog"] #"MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #
+n_latent = [5, 10, 20, 32, 64, 128, 256] #5, 10, 20, 32, 64, 128, 256
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+filename_params = "params_dog"
+tmp_filename = filename_params
+i = 0
+while os.path.exists((tmp_filename + ".json")):
+    tmp_filename = (filename_params + "_%d", i)
+    i += 1
+
+filename_params = tmp_filename + ".json"
+
+copyfile("params.json", filename_params)
 
 for dataset in datasets:
     # adapt dataset specific parameters (i.e. train size, num_classes,...)
     # first read the params and overwrite the specific parameter
-    with open("params.json", "r") as paramsFile:
+    with open(filename_params, "r") as paramsFile:
         params = json.load(paramsFile)
 
     if dataset == "MNIST":
@@ -46,21 +57,25 @@ for dataset in datasets:
         params["resize_width"] = 64
 
     # write the new parameters to the parameter file
-    with open("params.json", "w") as paramsFile:
+    with open(filename_params, "w") as paramsFile:
         json.dump(params, paramsFile)
 
     for n in n_latent:
         # part for changing the parameters as desired
 
         # first read the params and overwrite the specific parameter
-        with open("params.json", "r") as paramsFile:
+        with open(filename_params, "r") as paramsFile:
             params = json.load(paramsFile)
         params["n_latent"] = n
         # write the new parameters to the parameter file
-        with open("params.json", "w") as paramsFile:
+        with open(filename_params, "w") as paramsFile:
             json.dump(params, paramsFile)
         # execute the Training for all Datasets
         #p = subprocess.Popen('python3.6 Train.py --dataset=MNIST --gpu=2 --latent_model=AE')
         #p.wait()
-        os.system('python3.6 Train.py --dataset=%s --gpu=3 --latent_model=AE --cluster_model=gmm' % dataset)
+        os.system('python3.6 Train.py --dataset=%s --gpu=0 --latent_model=AE --cluster_model=kmeans --Parameters=%s'% (dataset, filename_params))
         time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
+
+# remove the copied version of params file,
+# since the model specific parameters are saved at model direction
+os.remove(filename_params)
