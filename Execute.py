@@ -3,16 +3,17 @@ import time
 import json
 from shutil import copyfile
 
-datasets = ["IMAGENET-Dog"] #"MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #
+datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #"MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #
 n_latent = [5, 10, 20, 32, 64, 128, 256] #5, 10, 20, 32, 64, 128, 256
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
-filename_params = "params_dog"
-tmp_filename = filename_params
+filename_params = "params_VAE"
+tmp_filename = "{}.json".format(filename_params)
 i = 0
-while os.path.exists((tmp_filename + ".json")):
-    tmp_filename = (filename_params + "_%d", i)
+
+while os.path.exists(tmp_filename):
+    tmp_filename = "{}_{}.json".format(filename_params, i)
     i += 1
 
 filename_params = tmp_filename + ".json"
@@ -73,7 +74,7 @@ for dataset in datasets:
         # execute the Training for all Datasets
         #p = subprocess.Popen('python3.6 Train.py --dataset=MNIST --gpu=2 --latent_model=AE')
         #p.wait()
-        os.system('python3.6 Train.py --dataset=%s --gpu=0 --latent_model=AE --cluster_model=kmeans --Parameters=%s'% (dataset, filename_params))
+        os.system('python3.6 Train.py --dataset=%s --gpu=3 --latent_model=VAE --cluster_model=kmeans --Parameters=%s'% (dataset, filename_params))
         time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
 
 # remove the copied version of params file,

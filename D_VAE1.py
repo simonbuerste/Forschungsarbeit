@@ -126,6 +126,7 @@ def decoder(sampled_z, is_training, params):
 def build_model(inputs, is_training, params):
 
     original_img = inputs["img"]
+    sigma = tf.placeholder(tf.float32, [], name="sigma_ratio")
     # Bringing together Encoder and Decoder
     sampled, q_z, z_mu, z_log_sigma_sq = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
@@ -139,16 +140,11 @@ def build_model(inputs, is_training, params):
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     # Calculate KL loss of gaussian path
-    p_z = tf.distributions.Normal(tf.zeros_like(z), tf.ones_like(z))
+    p_z = tf.distributions.Normal(tf.zeros_like(sampled), tf.ones_like(sampled))
     kl_loss_gaussian = q_z.kl_divergence(p_z)
     kl_loss_gaussian = tf.reduce_mean(tf.reduce_sum(kl_loss_gaussian, axis=-1))
 
-    # Calculate KL loss of categorical path
-    log_p_z = tf.log(1/params.k)
-    kl_loss_cat = cat_sampled*(tf.log(cat_sampled+1e-20) - log_p_z)
-    kl_loss_cat = tf.reduce_mean(tf.reduce_sum(kl_loss_cat, axis=-1))
-
-    return loss_likelihood, kl_loss_gaussian, kl_loss_cat, latent, cat_sampled, reconstructed_mean, sigma_placeholder
+    return loss_likelihood, kl_loss_gaussian, sampled, reconstructed_mean, sigma
 
 
 def vae_model_fn(mode, inputs, params, reuse=False):
@@ -172,11 +168,10 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # MODEL: define the layers of the model
     with tf.variable_scope('vae_model', reuse=reuse):
         # Compute the output distribution of the model and the predictions
-        loss_likelihood, kl_loss_gauss, kl_loss_cat, latent_img, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training, params)
+        loss_likelihood, kl_loss_gauss, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training, params)
 
     # Define the Loss
-    w_g = tf.constant(5.0)
-    loss = tf.reduce_mean(loss_likelihood + w_g*kl_loss_gauss + kl_loss_cat)
+    loss = tf.reduce_mean(loss_likelihood + kl_loss_gauss)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -193,7 +188,6 @@ def vae_model_fn(mode, inputs, params, reuse=False):
         metrics = {
             'loss': tf.metrics.mean(loss),
             'kl_loss_gauss': tf.metrics.mean(kl_loss_gauss),
-            'kl_loss_categorical': tf.metrics.mean(kl_loss_cat),
             'neg_log_likelihood': tf.metrics.mean(loss_likelihood)
         }
 
@@ -207,7 +201,6 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     # Summaries for training
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('kl_loss_gauss', kl_loss_gauss)
-    tf.summary.scalar('kl_loss_categorical', kl_loss_cat)
     tf.summary.scalar('neg_log_likelihood', loss_likelihood)
     # Summary for reconstruction and original image with max_outpus images
     tf.summary.image('Original Image', inputs['img'], max_outputs=6, collections=None, family=None)
@@ -232,6 +225,11 @@ def vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
     model_spec['gamma_placeholder'] = tf.placeholder(tf.float32, [], name="gamma")
+    model_spec['lambda_r_placeholder'] = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
+    model_spec['lambda_c_placeholder'] = tf.placeholder(tf.float32, shape=[], name='center_sim_regularization')
+    model_spec['lambda_d_placeholder'] = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
+    model_spec['lambda_b_placeholder'] = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
+    model_spec['lambda_w_placeholder'] = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
 
     if mode == 'train':
         model_spec['train_op'] = train_op
