@@ -53,7 +53,6 @@ def train_sess(sess, model_spec, num_steps, writer, params):
         sess.run(train_op_additional,
                  feed_dict={model_spec['sigma_placeholder']: params.sigma,
                             model_spec['learning_rate_placeholder']: params.initial_training_rate,
-                            model_spec['gamma_placeholder']: params.gamma,
                             model_spec['lambda_r_placeholder']: params.lambda_r,
                             model_spec['lambda_c_placeholder']: params.lambda_c,
                             model_spec['lambda_d_placeholder']: params.lambda_d,
@@ -69,7 +68,6 @@ def train_sess(sess, model_spec, num_steps, writer, params):
                                                               summary_op, global_step],
                                                              feed_dict={model_spec['sigma_placeholder']: params.sigma,
                                                                         model_spec['learning_rate_placeholder']: params.initial_training_rate,
-                                                                        model_spec['gamma_placeholder']: params.gamma,
                                                                         model_spec['lambda_r_placeholder']: params.lambda_r,
                                                                         model_spec['lambda_c_placeholder']: params.lambda_c,
                                                                         model_spec['lambda_d_placeholder']: params.lambda_d,
@@ -84,7 +82,6 @@ def train_sess(sess, model_spec, num_steps, writer, params):
             _, _, loss_val = sess.run([train_op, update_metrics, loss],
                                       feed_dict={model_spec['sigma_placeholder']: params.sigma,
                                                  model_spec['learning_rate_placeholder']: params.initial_training_rate,
-                                                 model_spec['gamma_placeholder']: params.gamma,
                                                  model_spec['lambda_r_placeholder']: params.lambda_r,
                                                  model_spec['lambda_c_placeholder']: params.lambda_c,
                                                  model_spec['lambda_d_placeholder']: params.lambda_d,
@@ -133,28 +130,28 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
 
         # Load Best eval_loss so far (if existent)
         best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
-        if os.path.isfile(best_json_path):
-            best_eval_metrics = Params(best_json_path)
-            best_eval_loss = best_eval_metrics.VAE_loss
-        else:
-            best_eval_loss = 10000.0
+        # if os.path.isfile(best_json_path):
+        #     best_eval_metrics = Params(best_json_path)
+        #     best_eval_loss = best_eval_metrics.VAE_loss
+        # else:
+        best_eval_nmi = 0.0
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # if epoch > 5:
             #     params.lambda_r = 0.001
-            if epoch == 0:
-                params.lambda_r = 0.001
-                params.lamdba_c = 0.0
-                params.lambda_d = 1.0
-                params.lambda_b = 0.0
-                params.lambda_w = 0.0
-            elif epoch == 30:
-                params.lambda_r = 0.001
-                params.lambda_c = -1.0
-                params.lambda_d = 1.0
-                params.lambda_b = 0.0
-                params.lambda_w = 0.0
+            # if epoch == 0:
+            #     params.lambda_r = 0.001
+            #     params.lamdba_c = 0.0
+            #     params.lambda_d = 1.0
+            #     params.lambda_b = 0.0
+            #     params.lambda_w = 0.0
+            # elif epoch == 30:
+            #     params.lambda_r = 0.001
+            #     params.lambda_c = -1.0
+            #     params.lambda_d = 1.0
+            #     params.lambda_b = 0.0
+            #     params.lambda_w = 0.0
             # elif epoch == 40:
             #     params.lambda_r = 0.1
             #     params.lambda_c = -1.0
@@ -207,9 +204,9 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             # If best_eval, best_save_path
             metrics_eval['training_loss'] = metrics_train['loss']
 
-            if metrics_eval['training_loss'] <= best_eval_loss:
+            if metrics_eval['Normalized Mutual Information'] >= best_eval_nmi:
                 # Store new best accuracy
-                best_eval_loss = metrics_eval['training_loss']
+                best_eval_nmi = metrics_eval['Normalized Mutual Information']
                 # Save weights
                 best_save_path = os.path.join(model_dir, 'best_weights/', 'after-epoch')
                 best_save_path = best_saver.save(sess, best_save_path, global_step=epoch + 1)

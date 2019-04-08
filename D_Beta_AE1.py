@@ -132,7 +132,7 @@ def b_ae_model_fn(mode, inputs, params, reuse=False):
 
     batch_size = tf.shape(sampled)[-1]
     sum_anchor_values = tf.size(anchor_idx)
-    alpha = tf.constant(0.5)
+    alpha = params.alpha
 
     L_d = tf.cast((1/(batch_size**2 - sum_anchor_values)), tf.float32)*tf.cast((tf.reduce_sum(tf.abs(C_ij))-tf.reduce_sum(tf.abs(anchor_val))), tf.float32)
     x = (1.0 - alpha) / tf.cast(sum_anchor_values, tf.float32)

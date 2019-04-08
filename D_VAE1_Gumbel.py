@@ -84,12 +84,12 @@ def encoder(encoder_input, is_training, params):
 
     q_z = tf.nn.softmax(logits_z)
 
-    temperature = tf.constant(2.0)
+    temperature = params.temperature_gumbel
     z = gumbel_softmax(logits_z, temperature)#tf.reshape(gumbel_softmax(logits_z, temperature), [-1, params.cat_distr, params.k])
     print(logits_z.get_shape())
     print('-------Encoder-------')
 
-    return z, logits_z, q_z, sigma
+    return z, logits_z, q_z
 
 
 # Defining the Decoder
@@ -129,8 +129,9 @@ def decoder(sampled_z, is_training, params):
 
 def build_model(inputs, is_training, params):
     original_img = inputs["img"]
+    sigma = tf.placeholder(tf.float32, [], name="sigma_ratio")
     # Bringing together Encoder and Decoder
-    sampled, logits_z, q_z, sigma_placeholder = encoder(original_img, is_training, params)
+    sampled, logits_z, q_z = encoder(original_img, is_training, params)
     reconstructed_mean = decoder(sampled, is_training, params)
 
     # Calculate log likelihood
@@ -146,7 +147,7 @@ def build_model(inputs, is_training, params):
     kl_loss = tf.multiply(p_z, (tf.log(p_z + 1e-20) - log_q_z))
     kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
-    return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder
+    return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma
 
 
 def g_vae_model_fn(mode, inputs, params, reuse=False):
@@ -176,9 +177,8 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
         loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma_placeholder = build_model(inputs, is_training,
                                                                                                params)
 
-    gamma = tf.placeholder(tf.float32, [], name="gamma")
     # Define the Loss
-    loss = tf.reduce_mean(loss_likelihood + gamma*kl_loss)
+    loss = tf.reduce_mean(loss_likelihood + kl_loss)
 
     # Define training step that minimizes the loss with the Adam optimizer
     learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate")
@@ -231,7 +231,11 @@ def g_vae_model_fn(mode, inputs, params, reuse=False):
     model_spec['reconstructions'] = tf.sigmoid(reconstructed_mean)
     model_spec['sigma_placeholder'] = sigma_placeholder
     model_spec['learning_rate_placeholder'] = learning_rate_ph
-    model_spec['gamma_placeholder'] = gamma
+    model_spec['lambda_r_placeholder'] = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
+    model_spec['lambda_c_placeholder'] = tf.placeholder(tf.float32, shape=[], name='center_sim_regularization')
+    model_spec['lambda_d_placeholder'] = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
+    model_spec['lambda_b_placeholder'] = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
+    model_spec['lambda_w_placeholder'] = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
 
     if mode == 'train':
         model_spec['train_op'] = train_op
