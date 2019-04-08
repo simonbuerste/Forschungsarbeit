@@ -541,9 +541,46 @@ The parameters $\underline{\gamma}$ and $\underline{\beta}$ are learned together
 	\begin{align}
 		\phi(a) = \begin{cases} a & a > 0\\ \dfrac{a}{\xi} & a \leq 0\\ \end{cases} \label{eq:leackyReLU}
 	\end{align}	
-	\item[Max-Pooling]
+	\item[Max-Pooling]\hfill \\
+	A pooling function in general replaces the output of a layer at a certain location with a (defined) summary statistic of the nearby outputs. The size of "nearby" outputs are defined by a parameter. These operations are used to get a certain degree of invariance to small translations. For instance, if we take an image $\mathbf{X}$ with a sharp boundary between white and black pixels, the output of the same image shifted one to the right, i.e. $\mathbf{Z}[i, j] = \mathbf{X}[i, j+1]$ will be vastly different. The edge will be shifted by one pixels and with it all activations. Typical pooling functions are max-pooling and average pooling. These functions take the maximum (or average) in a defined neighbourhood of the pixel. It can be easily seen, that pooling reduces the size of the image by a factor, which is the multiplication of the neighbourhood sizes in the dimensions (\cite{Goodfellow-et-al-2016}, \cite{DeepLearningDive}). An example for max-pooling on a $4x4$ input image is given in figure \ref{fig:Max-Pooling}.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{Graphiken/2x2_MaxPooling}
+	\caption{2x2 Max-Pooling}
+	\label{fig:Max-Pooling}
+\end{figure}	
 \end{description}
+The general training of an Autoencoder is quite straightforward. The principle is the same as for supervised learning with the "ground truth" $\underline{y} = \underline{x}$. The latent representation $\underline{z}$ is then learned automatically by the input $\underline{x}$. The training objective of an Autoencoder can then be written as in equation \ref{eq:ReconstructionLoss}.
+\begin{align}
+	 \underset{\underline{\theta}_e,\underline{\theta}_d}\min\ L_r(\underline{x},\hat{\underline{x}};\underline{\theta})\label{eq:ReconstructionLoss}
+\end{align}
+The function for the reconstruction can be an arbitrary function for comparison of input $\underline{x}$ and output $\hat{\underline{x}}$. A typical loss function, which also will be used within this work, is the mean squared error, which gives a reconstruction $L_r$ as defined in formula \ref{eq:MeanSquaredError} \cite{LectureNotes_DeepLearning}.
+\begin{align}
+	 L_r(\underline{x},\hat{\underline{x}};\underline{\theta}) = \textrm{E}(||\underline{x}-\hat{\underline{x}}||^{2})\label{eq:MeanSquaredError}
+\end{align}
+The introduced architecture of an Autoencoder will be used as base for further modified architectures. Thus when speaking about an Autoencoder, the above introduced architecture is used. There is no explicit hyperparameter for this model. But general model-related hyperparameters are the size of the latent space, the number of layers or number of filters which are used per layer. The hyperparameters which will be investigated in detail in this work will be introduced in a separate chapter.
 \subsection{Discriminative Autoencoder}
+In traditional Autoencoders, representation-learning/feature-selection and clustering is treated separately. Nevertheless, the task for clustering is learning optimal representations of the original data for the clustering algorithm. Therefore, a sole reconstruction loss is not the optimal choice for clustering, due to the natural trade-off between clustering and reconstruction. Therefore, \cite{DiscriminativeClustering} proposes additional an discriminative loss function to enable a deep discriminative latent space for clustering. Therefore an Autoencoder is optimized with respect to a discriminative loss. In this work, just parts of the loss function is carried over, due to time restrictions for the implementation. As mentioned in \cite{DiscriminativeClustering}, this phase has a significant effect on the overall clustering accuracy, therefore it is crucial to put a focus on this training phase rather than on fine tuning after an autoencoder training. The training phase of the discriminative Autoencoder has the objective to obtain a discriminative latent space. Therefore the additional Loss $L_d(D;\underline{\theta}_e)$ is introduced which updates the encoder parameters $\underline{\theta}_e$ according to the discriminative objective based on the Data $D$. The proposed discriminative function of the latent representations $\underline{z}$ is of form $l_d(\underline{z}_i, \underline{z}_j)$ where $l_d(\underline{z}_i, \underline{z}_j) = \textrm{sim}(\underline{z}_i,\underline{z}_j)$ and $\textrm{sim}$ stands for any similarity measure between a pair of data points (equation \ref{eq:DiscriminativeLoss_general}).
+\begin{align}
+	 L_d(D;\underline{\theta}_e) = \sum_{i,j \in D}w_{ij}\textrm{sim}(\underline{z}_i,\underline{z}_j)\label{eq:DiscriminativeLoss_general}
+\end{align}
+A naive approach would be to set $w_{ij} = |D|^{-2}$ with $|D|$ is the cardinality of the dataset. If no prior knowledge is available, this would be an appropriate choice. Nevertheless, this is sub-optimal, since all similarities are penalized, regardless of whether they belong to the same cluster or not, because all similarities would be forced to small values. So if assignments to clusters would be available, we could easily adapt this loss and split it into two parts. One for minimization of cross clusters similarities, and one for the maximization of within cluster similarities, which leads to the following formula \ref{eq:DiscriminativeLoss_ClusterAssignments}.
+\begin{align}
+	 L_d(D;\underline{\theta}_e) = \dfrac{1}{N_b}\sum_{i,j \not\in C}w_{ij}\textrm{sim}(\underline{z}_i,\underline{z}_j)-\dfrac{1}{N_w}\sum_{i,j \in C}w_{ij}\textrm{sim}(\underline{z}_i,\underline{z}_j)\label{eq:DiscriminativeLoss_ClusterAssignments}
+\end{align}
+The notation $i,j \in C$ defines a pair of data-points $i,j$ related to the same Cluster $X$. $N_b,N_w$ are the number of between cluster and within cluster pairs, respectively. When having a balanced dataset $D$ with $K$ clusters, then it can be stated that the number $N_w$ of within cluster pairs is approximately the fraction $\dfrac{1}{K}$ of all data pairs. Since cluster assignments are not known beforehand, first so-called anchor pairs are defined. Therefore similarities of the data-points based on their original representation are calculated and a fraction of pairs with largest similarity is defined as anchor pairs. The latent similarities of the anchor pairs is then to be maximized. Since the similarities based on the original representation are not reliable we only use the pairs with highest confidence. Additionally a hyperparameter $\alpha < 1$ is introduced to compensate for the uncertainty of the anchor pairs. With $A$ is the set of anchor pairs, we can re define the weights $w_{ij}$ as in equation \ref{eq:AnchorPairWeights}.
+\begin{align}
+	w_{ij} = \begin{cases} -\dfrac{1-\alpha}{|A|} & i,j \in A \\ \dfrac{1}{|D|^2-|A|} & i,j \not\in A\\ \end{cases} \label{eq:AnchorPairWeights}
+\end{align}
+Now applying this to a minibatch algorithm, which is used for training, we have batches $B$ of the Dataset $D$. This yields to latent representations $\mathbf{Z} \in R^{|B|\ \textrm{x}\ d}$ with the cardinality $|B|$ of the batch and the latent size $d$. When applying the cosine similarity as similarity measure, we further define the row-wise normalized batch matrix $\tilde{\mathbf{Z}}$ with the $i$-th row is the row vector $\tilde{\underline{z}}^{T}_i$. Then the pairwise cosine similarity matrix is $\mathbf{C} = \tilde{\mathbf{Z}}\tilde{\mathbf{Z}}^T$ with $C_{ij} = \tilde{\underline{z}}^{T}_i \tilde{\underline{z}}_j$. With the anchor pairs $A_B$ per minibatch the discriminative loss per minibatch can be written in formula \ref{eq:DiscriminativeLoss_minibatch}.
+\begin{align}
+	 L_d(\mathbf{Z};\underline{\theta}_e) = \dfrac{1}{|B|^2-|A_B|}\sum_{i,j \not\in A_B}\textrm{abs}(C_{ij})-\dfrac{1-\alpha}{|A_B|}\sum_{i,j \in A_B}C_{ij}\label{eq:DiscriminativeLoss_minibatch}
+\end{align}
+Additional it is important to mention, that the right-hand component sum the similarity values without absolute value to encourage similarities with value 1 (similar) instead of value -1 (dissimilar). As this is an additional loss to the Autoencoder and an arbitrary discrimination of the data-points is not desired, the final optimization task is given in equation \ref{eq:Optimization_DiscrAE}, with $L_r$ is the reconstruction loss as defined earlier in this work and $\lambda_r$ is the hyperparameter for the reconstruction term.
+\begin{align}
+	 \underset{\underline{\theta}_e, \underline{\theta}_d}\min\ L_d(\mathbf{Z};\underline{\theta}_e)+\lambda_r L_r(\mathbf{X,\hat{\mathbf{X}}})\label{eq:Optimization_DiscrAE}
+\end{align}
+
 \subsection{Feature-selective Autoencoder}
 \section{Variational Autoencoder}
 \subsection{Gumbel Variational Autoencoder}
