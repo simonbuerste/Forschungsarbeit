@@ -580,9 +580,57 @@ Additional it is important to mention, that the right-hand component sum the sim
 \begin{align}
 	 \underset{\underline{\theta}_e, \underline{\theta}_d}\min\ L_d(\mathbf{Z};\underline{\theta}_e)+\lambda_r L_r(\mathbf{X,\hat{\mathbf{X}}})\label{eq:Optimization_DiscrAE}
 \end{align}
-
 \subsection{Feature-selective Autoencoder}
 \section{Variational Autoencoder}
+The Variational Autoencoder (VAE) is actually similar to the classical Autoencoder, except for one additional constraint. The constraint is that the latent variable $\underline{z}$ has a known distribution, mostly $N(\underline{0}, \mathbf{I})$. Through this additional constraint, it is possible to remove the encoder after training and draw random samples $\underline{z}$ from $N(\underline{0}, \mathbf{I})$ as input to the decoder. The decoder is a nonlinear mapping and translate $\underline{z}$ to new realistic-looking samples $\hat{\underline{x}}$ without inputting $\underline{x}$. In general a VAE is a generative model, which learns a joint distribution $p(\underline{x},\underline{y})$ between the observation $\underline{x}$ and the desired output $\underline{y}$. To derive the optimization task, we define $q(\underline{z}|\underline{x})$ as the probabilistic encoder. This produces a distribution over possible values of $\underline{z}$ given a datapoint $\underline{x}$.\\
+The task is to find the true posterior $p(\underline{z}|\underline{x})$ which is given in equation \ref{eq:VAE_Posterior}.
+\begin{align}
+	 p(\underline{z}|\underline{x}) = p(\underline{x}|\underline{z})\dfrac{p(\underline{z})}{p(\underline{x})}\label{eq:VAE_Posterior}
+\end{align}
+Further $p(\underline{x})$ can further be written as in formula \ref{eq:VAE_Marginal}.
+\begin{align}
+	 p(\underline{x}) = \int p(\underline{z})p(\underline{x}|\underline{z})\label{eq:VAE_Marginal}
+\end{align}
+In cases with moderately complicated likelihood functions $p(\underline{x}|\underline{z})$, i.e. a neural network with a nonlinear hidden layer, the marginal likelihood and the posterior density are often intractable, so not solvable by a closed form solution. Therefore, an approximation $q(\underline{z}|\underline{x})$ of the true, but unknown conditional PDF $p(\underline{z}|\underline{x})$ is introduced, which will be fitted to the true posterior while training. Additional $\underline{X}$ and $\underline{Z}$ have the joint distribution $p(\underline{x},\underline{z})$ with the marginal PDFs $p(\underline{x})$ and $p(\underline{z})$. With these distributions and the approximation of the posterior, the so-called variational lower bound for $p(\underline{x})$ can be calculated. The lower bound is given by equation \ref{eq:Variational_Lower_Bound}.
+\begin{align}
+	 p(\underline{x}) \geq -D_{\textrm{KL}}(q(\underline{z}|\underline{x})||p(\underline{z}))+\textrm{E}_{\underline{Z}\backsim q(\underline{z}|\underline{x})}\textrm{ln}p(\underline{x}|\underline{Z})\label{eq:Variational_Lower_Bound}
+\end{align}
+The key benefit of the variational lower bound is the approximation of the difficult-to-calculate integral (equation \ref{eq:VAE_Marginal}) by an easy-to-calculate sample mean KL divergence. With some renaming this leads for our VAE to minimizing equation \ref{eq:VAE_training}).
+\begin{align}
+	 \textrm{ln}\ q(\underline{x};\underline{\theta}) \geq \underbrace{-D_{\textrm{KL}}(q_e(\underline{z}|\underline{x};\underline{\theta}_e)||q(\underline{z}))}_{\iota_{\textrm{KL}}}+\underbrace{\textrm{E}_{\underline{Z}\backsim q_e(\underline{z}|\underline{x};\underline{\theta}_e)}\textrm{ln}q(\underline{x}|\underline{Z};\underline{\theta}_d)}_{\iota_{\textrm{rec}}}\label{eq:VAE_training}
+\end{align}
+Instead of minimizing the hard to calculate parametric model $q(\underline{x};\underline{\theta})$ the variational lower bound will be minimized, which can be shortly written as the following minimization task (equation ).
+\begin{align}
+	\underset{\underline{\theta}}\min\ L_{\textrm{VAE}} = \underset{\underline{\theta}}\min\ \iota_{\textrm{KL}} + \underset{\underline{\theta}}\min\ \iota_{\textrm{rec}}\label{eq:VAE_Min}
+\end{align}
+The corresponding parts of the formula will be explained shortly in the following.
+\begin{description}
+	\item[$q(\underline{x};\underline{\theta})$]The parametric model for the unknown true distribution $p(\underline{x})$ of $\underline{x}$. Instead of minimizing $ln(q(\underline{x};\underline{\theta}))$, the variational lower bound is minimized.
+	\item[$q_e(\underline{z}|\underline{x};\underline{\theta}_e)$]Posterior distribution of latent variable $\underline{z}$ for a given input $\underline{x}$. The encoder of the VAE with its parameters $\underline{\theta}_e$ is described by this distribution.
+	\item[$q_e(\underline{x}|\underline{z};\underline{\theta}_d)$]It describes the decoder part of the VAE with its parameters $\underline{\theta}_d$ and describes how the original input $\underline{x}$ can be reconstructed out of the latent representation $\underline{z}$
+	\item[$q(\underline{z})$]The desired prior distribution of the latent representation $\underline{z}$, i.e. $N(\underline{0}, \mathbf{I})$
+	\item[$\underset{\underline{\theta}}\min\ \iota_{\textrm{KL}}$]The encoder (with its parameters $\underline{\theta}_e$) is trained to force $\underline{z}$ to the desired (i.e. gaussian) distribution $q(\underline{z})$.
+	\item[$\underset{\underline{\theta}}\min\ \iota_{\textrm{rec}}$]The encoder and decoder (with parameters $\underline{\theta}_e$ and $\underline{\theta}_d$) is trained to form an optimum reconstruction $\hat{\underline{x}}$ of $\underline{x}$ based on $\underline{z}$ (as in normal Autoencoders).
+\end{description}
+The last step for training a VAE is the reparametrization trick. It is needed, because the backpropagation, which is crucial for training a deep neural network, can not pass the sampling unit. The sampling of $\underline{z} \backsim q_e(\underline{z}|\underline{x}) = N(\underline{\mu}(\underline{x}), \mathbf{C}(\underline{x}))$ is a non-continuous operation and has no gradient. This problem is also visualized graphically in figure \ref{fig:Sampling_wo_reparametrization}.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.75\linewidth]{Graphiken/VAE_wo_reparametrization}
+	\caption{Sampling of $\underline{z}$ without reparametrization trick}
+	\label{fig:Sampling_wo_reparametrization}
+\end{figure}
+This is fixed by using the reparametrization trick. It is to express the random variable $\underline{z}$ as a deterministic variable $\underline{z} = g(\underline{\epsilon}, \underline{x})$ where $\underline{\epsilon}$ is an auxiliary variable with independent marginal pdf $p(\underline{\epsilon})$. With an easy mapping of $\underline{z}$ (see equation \ref{eq:z_Mapping_reparametrization} and $\underline{\epsilon} \backsim N(\underline{0}, \mathbf{I})$ the latent variable $\underline{z}$ can be calculated.
+\begin{align}
+	\underline{z} = g(\underline{\epsilon}, \underline{x}) = \underline{\mu} + \underline{\sigma}\cdot\underline{\epsilon}\label{eq:z_Mapping_reparametrization}
+\end{align}
+Additionally, the non-linear sampling process is outside the path of the backpropagation. Thus $\underline{z}$ is now continuous in $\underline{\mu}$ and $\underline{\sigma}$ which are continuous in $\underline{\theta}_e$. So backpropagation is possible. This is visualized in figure \ref{fig:Sampling_w_reparametrization}.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.75\linewidth]{Graphiken/VAE_w_reparametrization}
+	\caption{Sampling of $\underline{z}$ with reparametrization trick}
+	\label{fig:Sampling_w_reparametrization}
+\end{figure}
+Another trick is to use $\textrm{ln}\underline{\sigma}$ instead of $\underline{\sigma}$, since $\underline{\sigma}$ is always non-negative while $\textrm{ln}\underline{\sigma}$ can be positive and negative as $\underline{\mu}$, which is easier to output for the encoder. Also a diagonal $\mathbf{C} = \textrm{diag}(\underline{\sigma}\cdot\underline{\sigma})$ is assumed in figure \ref{fig:Sampling_w_reparametrization}. With these tricks and adoptions, an VAE can be easily trained via backpropagation (\cite{Kingma14VAE}, \cite{LectureNotes_DeepLearning}).
 \subsection{Gumbel Variational Autoencoder}
 \section{IDEC}
 \chapter{Experimental Setup}
