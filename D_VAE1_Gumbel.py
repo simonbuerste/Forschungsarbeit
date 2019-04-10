@@ -143,8 +143,8 @@ def build_model(inputs, is_training, params):
     loss_likelihood = -tf.reduce_mean(tf.reduce_sum(help_p.log_prob(original_img), [1, 2, 3]))
 
     log_q_z = tf.log(q_z + 1e-20)
-    p_z = gumbel_softmax(logits_z, tf.constant(0.5))
-    kl_loss = tf.multiply(p_z, (tf.log(p_z + 1e-20) - log_q_z))
+    log_p_z = tf.log(1/params.k + 1e-20)
+    kl_loss = tf.multiply(q_z, (log_q_z - log_p_z))
     kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=-1))
 
     return loss_likelihood, kl_loss, sampled, reconstructed_mean, sigma

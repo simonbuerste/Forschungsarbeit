@@ -509,6 +509,7 @@ The desired dataset, feature extraction model and clustering algorithm is select
 \chapter{Model Architectures and Algorithm}
 In this chapter, the implemented and evaluated architectures and algorithms will be explained in detail. Therefore, the corresponding loss functions, the training procedure and also model-related hyperparameters are introduced. The most parts are models for representation learning and so used as feature extractor. They base on autoencoder structure, but all slightly differ. Also, one additional clustering algorithm (in addition to the already introduced k-means and gmm clustering algorithm), the Improved Deep Embedding Clustering (IDEC) algorithm is introduced.
 \section{Autoencoder}
+\label{sec:AE}
 The general architecture of an autoencoder (figure \ref{fig:Autoencoder}), the formulation for the latent space $\underline{z}(n)$ (formula \ref{eq:Embedding_z}) and the reconstruction $\underline{r}$ (formula \ref{eq:Reconstruction}) is already introduced. To achieve a meaningful latent representation, we use undercomplete autoencoder to force the model to capture the most important features of the input data \cite{LectureNotes_DeepLearning}. Thus we have a bottleneck of a parametrized size $n\_latent$, so $\underline{z}(n) \in \mathbb{R}^{n\_latent}$. \cite{Bengio-et-al-2013} states, "one can view the objective of the regularization applied to an autoencoder as making the representation as "constant" (insensitive) as possible with respect to changes in input". For our tasks, this means that i.e. when clustering between dogs and cats, different kind of dogs should be mapped to a similar representation, so this representation should be as "constant" as possible.\\
 In this work, we use deep autoencoder models with convolutional and deconvoluational layers, a Deep Convolutional Autoencoder \cite{DeepCAE}. By this, it takes advantage of the properties of a convolutional neural network (CNN). The local connections and parameter sharing of a convolutional layer distinguish a CNN to have a property in translation latent features \cite{Goodfellow-et-al-2016}. Thus, by using a CNN-structure, we have a certain locality in feature calculation, which means that only a small neighbourhood of pixels will be used for computation. This is a good property for images, since often the features (i.e. edges) are occurring in a certain neighbourhood. The encoder-decoder structure of the used autoencoder is given in figure \ref{fig:AE_ModelArchitecture} with example dimensions at each layer for an input image of size $32x32x1$.
 \begin{figure}[htb!]
@@ -632,7 +633,48 @@ Additionally, the non-linear sampling process is outside the path of the backpro
 \end{figure}
 Another trick is to use $\textrm{ln}\underline{\sigma}$ instead of $\underline{\sigma}$, since $\underline{\sigma}$ is always non-negative while $\textrm{ln}\underline{\sigma}$ can be positive and negative as $\underline{\mu}$, which is easier to output for the encoder. Also a diagonal $\mathbf{C} = \textrm{diag}(\underline{\sigma}\cdot\underline{\sigma})$ is assumed in figure \ref{fig:Sampling_w_reparametrization}. With these tricks and adoptions, an VAE can be easily trained via backpropagation (\cite{Kingma14VAE}, \cite{LectureNotes_DeepLearning}).
 \subsection{Gumbel Variational Autoencoder}
+The objective of clustering is representing the original data by a discrete structure of cluster assignments. Although categorical variables are often a natural choice for representing discrete structure in data, stochastic neural networks rarely use categorical latent variables due to the inability to backpropagate through those categorical samples. For this reason, \cite{Jang17GumbelVAE} introduce the so called Gumbel-Softmax distribution, which can on the one hand easily approximate categorical samples, on the other hand the gradients of it can be easily computed via the reparameterization trick. This will then be used in this work to force an Variational Autoencoder having an approximately discrete latent space. A $k$-dimensional sample $\underline{y}$, drawn from the Gumbel-Softmax distribution can be generated with equation \ref{eq:GumbelSoftmax_Sample} with class probabilities $\pi$. $g_1...g_k$ are i.i.d samples drawn from Gumbel(0,1), which can be sampled as given in equation \ref{eq:Gumbel_Sample}.
+\begin{align}
+	y_i = \dfrac{\exp((\log(\pi_i)+g_i)/\tau}{\sum_{j=1}^{k}\exp((\log(\pi_i)+g_i)/\tau}\label{eq:GumbelSoftmax_Sample}
+\end{align}
+\begin{align}
+	g = -\log(-\log(u)), u \backsim \textrm{Uniform(0,1)}\label{eq:Gumbel_Sample}
+\end{align}
+An adaptable parameter is the softmax temperature $\tau$. When $\tau$ approaches $0$, samples from Gumbel-Softmax become one-hot and the Gumbel-Softmax distribution becomes the categorical distribution. The distribution for different values of $\tau$ is shown in figure \ref{fig:Gumbel-Softmax_Distr}.
+\begin{figure}[htb!]
+	\centering
+	\includegraphics[width=0.75\linewidth]{Graphiken/gumbel_temp_fig}
+	\caption{Gumbel-Softmax distribution for different temperatures $\tau$ \cite{Jang17GumbelVAE}}
+	\label{fig:Gumbel-Softmax_Distr}
+\end{figure}
+When implementing this to the VAE, the implementation for calculating the loss and generating the latent representation $\underline{z}$ changes slightly. The KL-Loss is now calculated between the new posterior distribution $q_e(\underline{z}|\underline{x};\underline{\theta}_e)$, which is a Softmax of our logits and the new prior $q(\underline{z})$, where we assume to have uniform distributed date over the clusters. The logits are the output of the last encoder layer. The latent representation $\underline{z}$ for clustering and also as input for the decoder is a sample drawn from the Gumbel-Softmax distribution (equation \ref{eq:GumbelSoftmax_Sample}) with the logits are the logarithm of out class probabilities. This can be rewritten as equation \ref{eq:VAE_GumbelSoftmaxSample}.
+\begin{align}
+	z_i = \dfrac{\exp((logit+g_i)/\tau}{\sum_{j=1}^{k}\exp((logit+g_i)/\tau}\label{eq:VAE_GumbelSoftmaxSample}
+\end{align}
+With this setup, we can force the VAE to learn discrete latent representations of the data. With the hyperparameter $\tau$ the "discreteness" of our representation can be adjusted.
 \section{IDEC}
+As mentioned in previous chapters, the training of an Autoencoder is not the best and natural choice for clustering, since the training is just performed based on the reconstruction loss. Therefore, many works add additional loss terms regarding the clustering perspective. One example, which is adding a clustering specific loss and performing clustering in parallel while training is the Improved Deep Emebedded Clustering (short IDEC) \cite{Guo17IDEC}. They propose a deep clustering algorithm that can jointly perform clustering and learn representations with local structure preservation. Therefore, the first step is pretraining a classical Autoencoder, as described in section \ref{sec:AE}. After pretraining, the additional loss for deep embedding clustering is introduced, as proposed by \cite{Xie16DEC}. The finetuning of the encoder is done by optimizing the (clustering) objective in formula \ref{eq:Objective_DEC}.
+\begin{align}
+	L_c = \textrm{KL}(P||Q) = \sum_i\sum_j p_{ij}\log\dfrac{p_{ij}}{q_{ij}}\label{eq:Objective_DEC}
+\end{align}
+With $q_{ij}$ is the similarity between the latent representation $\underline{z}_i$ and the respective cluster center $\underline{\mu}_j$. As similarity measure the Student's $t$-distribution is used \cite{t-SNE} (formula \ref{eq:Student_t_similarity}).
+\begin{align}
+	q_{ij}=\dfrac{(1+||\underline{z}_i-\underline{\mu}_j||^2)^{-1}}{\sum_j(1+||\underline{z}_i-\underline{\mu}_j||^2)^{-1}}\label{eq:Student_t_similarity}
+\end{align}
+For assigning a latent representation $\underline{z}_i$ to a cluster, an arg max operation is executed. So the cluster with highest similarity is chosen. The assignment $s_i$ of sample $i$ is given in equation \ref{eq:IDEC_Assignment}.
+\begin{align}
+	s_i = \textrm{arg}\ \underset{j}\max\ q_{ij}\label{eq:IDEC_Assignment}
+\end{align}
+
+The target distribution $p_{ij}$ is defined in formula \ref{eq:IDEC_targetdistribution}.
+\begin{align}
+	p_{ij}=\dfrac{q_{ij}^{2}/\sum_i q_{ij}}{\sum_j q_{ij}^{2}/\sum_i q_{ij}}\label{eq:IDEC_targetdistribution}
+\end{align}
+This training procedure is a form of self-training, since the target distribution $P$ is defined by $Q$. With backpropagation, the latent representations $\underline{z}$ will be updated by updating the encoder parameters $\underline{\theta}_e$ as well as the cluster centers $\underline{\mu}_j$. IDEC additionally keeps the reconstruction loss $L_r$, to preserve the local structure. So the overall Loss of IDEC is summarized by equation \ref{eq:IDEC_Loss} with $\gamma > 0 $ is the hyperparameter that controls the degree of distorting embedding space.
+\begin{align}
+	L_{\textrm{IDEC}} = L_{r} + \gamma L_c\label{eq:IDEC_Loss}
+\end{align}
+When $\gamma = 1$ and $L_r = 0 $, the objective reduces to the objective from Deep Embedding Clustering (DEC) \cite{Xie16DEC}. The choice of the initial cluster centers is important for the convergence time and behaviour of IDEC. The centers are initialized by running k-means on the latent representations $\underline{z}$ based on the pretrained Autoencoder. The observed cluster centers are then the initialization for $\underline{\mu}_j$. Since the target distribution $P$ is defined by $Q$, the target distribution has to be fixed for updating and training for a defined number of training steps. Than the target distribution and cluster assignments will be updated. This repeats for a defined number of epochs.
 \chapter{Experimental Setup}
 \section{Datasets}
 \section{Metrics and Visualization}
