@@ -1,13 +1,21 @@
 import os
 import json
 import csv
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib2tikz import save as savetikz
 
-directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/LatentSpace"
+directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/Discriminative_AE"
 
 list_dir = next(os.walk(directory))[1]
 summary = []
+visu_data = []
+dataset_visu = ["MNIST"]
+model_visu = ["discriminative_AE"] # "AE", "VAE", "discriminative_AE", "featureselective_AE", "Gumbel_VAE"
 
-hyperparameters = ["n_latent"]
+hyperparameters = ["alpha", "lambda_r"]
 for x in list_dir:
     # define the filenames
     filename_param = os.path.join(directory, x, "params.json")
@@ -74,11 +82,11 @@ for x in list_dir:
         "training_loss_last":       eval_last_weights["training_loss"],
         "test_log_likelihood_best": eval_best_weights["neg_log_likelihood"],
         "test_log_likelihood_last": eval_last_weights["neg_log_likelihood"],
-        "Accuracy_best":            eval_best_weights["Accuracy"],
+        "Accuracy":                 eval_best_weights["Accuracy"],
         "Accuracy_last":            eval_last_weights["Accuracy"],
-        "NMI_best":                 eval_best_weights["Normalized Mutual Information"],
+        "NMI":                      eval_best_weights["Normalized Mutual Information"],
         "NMI_last":                 eval_last_weights["Normalized Mutual Information"],
-        "ARI_best":                 eval_best_weights["Adjusted Rand Index"],
+        "ARI":                      eval_best_weights["Adjusted Rand Index"],
         "ARI_last":                 eval_last_weights["Adjusted Rand Index"],
     }
     # add specific hyperparameters to dict (Hyperparams defined at beginning of file)
@@ -86,6 +94,9 @@ for x in list_dir:
         tmp[i] = params[i]
 
     summary.append(tmp)
+    # Save desired data for visualization
+    if (tmp["dataset"] in dataset_visu) and (tmp["latent_model"] in model_visu):
+        visu_data.append(tmp)
 
 
 # Write summary dict to csv file
@@ -95,3 +106,58 @@ with open(eval_file, 'w') as output_file:
     dict_writer = csv.DictWriter(output_file, keys)
     dict_writer.writeheader()
     dict_writer.writerows(summary)
+
+##############################################################################
+# Visualization of data
+metric_visu = ["Accuracy", "NMI"] # "Accuracy_best", "NMI_best", "ARI_best"
+
+model_color = {
+    "AE":                   'red',
+    "VAE":                  'blue',
+    "discriminative_AE":    'green',
+    "Gumbel_VAE":           'black'
+}
+
+plot_metric = np.zeros((len(visu_data)//len(model_visu), len(model_visu), len(metric_visu)), dtype=np.float32)
+plot_params = np.zeros((len(visu_data)//len(model_visu), len(model_visu), len(hyperparameters)), dtype=np.float32)
+
+iterator = np.zeros(len(model_visu), dtype=np.int64)
+for _, dict in enumerate(visu_data):
+    for l, model in enumerate(model_visu):
+        if model == dict["latent_model"]:
+            break
+
+    i = iterator[l]
+    for j, metric in enumerate(metric_visu):
+        plot_metric[i][l][j] = dict[metric]
+    for k, param in enumerate(hyperparameters):
+        plot_params[i][l][k] = dict[param]
+    iterator[l] += 1
+
+if len(hyperparameters) == 1:
+    for i, metric in enumerate(metric_visu):
+        fig = plt.figure(i)
+        ax = fig.add_subplot(111)
+        for l, model in enumerate(model_visu):
+            ax.plot(plot_params[:, l, 0], plot_metric[:, l, i], c=model_color[model], linestyle='-', label=model) # model_color[model],
+        ax.legend()
+        ax.set_xlabel('%s' % hyperparameters[0])
+        ax.set_ylim(0, 1)
+        ax.set_ylabel('%s' % metric)
+        ax.set_title('%s for different %s' % (metric, hyperparameters[0]))
+        savepath = os.path.join(directory, '%s.tex' % metric)
+        savetikz(savepath)
+    plt.show(block=True)
+elif len(hyperparameters) == 2:
+    for i, metric in enumerate(metric_visu):
+        fig = plt.figure(i)
+        ax = fig.add_subplot(111)
+        for l, model in enumerate(model_visu):
+            sc = ax.scatter(plot_params[:, l, 0], np.log(plot_params[:, l, 1]), c=plot_metric[:, l, i])
+        plt.colorbar(sc)#, ticks=[0, 0.2, 0.4, 0.6, 0.8, 1])
+        ax.set_xlabel('%s' % hyperparameters[0])
+        ax.set_ylabel('log of %s' % hyperparameters[1])
+        ax.set_title('%s for different %s and %s' % (metric, hyperparameters[0], hyperparameters[1]))
+    plt.show()
+else:
+    print("Sure you want to visualize this?")
