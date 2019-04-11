@@ -676,9 +676,94 @@ This training procedure is a form of self-training, since the target distributio
 \end{align}
 When $\gamma = 1$ and $L_r = 0 $, the objective reduces to the objective from Deep Embedding Clustering (DEC) \cite{Xie16DEC}. The choice of the initial cluster centers is important for the convergence time and behaviour of IDEC. The centers are initialized by running k-means on the latent representations $\underline{z}$ based on the pretrained Autoencoder. The observed cluster centers are then the initialization for $\underline{\mu}_j$. Since the target distribution $P$ is defined by $Q$, the target distribution has to be fixed for updating and training for a defined number of training steps. Than the target distribution and cluster assignments will be updated. This repeats for a defined number of epochs.
 \chapter{Experimental Setup}
+In this chapter, the set-up for running the experiments is described. Therefore, the Datasets are introduced, the used metrics and visualization tools for evaluation will be explained. Additionally, the investigated Hyperparameters are shortly listed and the variation scheme is described. The results of these experiments will be given in a separate chapter.
 \section{Datasets}
+For evaluating the different experiments, six different datasets are used, which represent more and less complex datasets and clustering tasks. It is important to mention, that in this work, the dataset is divided in training and test dataset. Many works related to unsupervised learning and clustering put all together and train the model on one dataset. This can be done, since the network has never information about the label, so a "remembering" of an image label can not occur. However, the argumentation is that we train our model on training data and want perform the clustering step on new unseen data. This allows to judge the generalization capability of our representation learning model, so it can be said that the feature extraction works also on unseen test data. The datasets and their splitting will be introduced shortly in table \ref{tab:Datasets}. For more details refer to the linked paper.
+\begin{table}[htb!]
+    \centering
+    \caption{Datasets for experiments}
+    \label{tab:Datasets}
+    \begin{tabular}{lcccc}
+        \toprule
+        Dataset & \# Training images & \# Test images & Image Size & \# classes\\
+        \midrule
+        MNIST \cite{MNIST-Data} & 55000 & 10000 & 28x28x1 & 10\\
+        F-MNIST \cite{xiao17F-MNIST} & 50000 & 10000 & 28x28x1 & 10\\
+        CIFAR-10 \cite{Krizhevsky09CIFAR} & 50000 & 10000 & 32x32x3 & 10\\
+        CIFAR-100 \cite{Krizhevsky09CIFAR} & 50000 & 10000 & 32x32x3 & 20\\
+        Imagenet-Dog \cite{imagenet_cvpr09} & 19472 & 750 & 64x64x3 & 15\\
+        Imagenet-10 \cite{imagenet_cvpr09} & 13000 & 500 & 64x64x3 & 10\\
+        \bottomrule
+    \end{tabular}
+\end{table}
+Some additional points to some datasets. MNIST and Fashion MNIST are resized to 32x32x1 images, to keep the same architecture for all dataset. Imagenet-Dog are  15 Dog classes drawn from the original Imagenet dataset with 1000 classes. This dataset is used to prove the performance of the clustering algorithm on similar data, since every class contain dogs. The 15 used classes are given as number labels so that the dataset could easily be reproduced: 153, 156, 161, 174, 197, 207, 215, 216, 218, 224, 227, 230, 236, 254, 260.\\
+Imagenet-10 are 10 randomly drawn classes from the entire Imagenet dataset. The 10 used classes are given as number labels so that the dataset could easily be reproduced: 145, 153, 289, 404, 405, 510, 805, 817, 867, 950.
 \section{Metrics and Visualization}
+This section first introduces the metrics, which are used for evaluation of the experiments. After that the visualization tools are described shortly. To compare clustering results fairly, different metrics are used. We use in this work the supervised metric Clustering accuracy (ACC), and the two unsupervised metrics Normalized Mutual Information (NMI) and Adjusted Rand Index (ARI). Unsupervised means in this case, that no label information is needed to calculate the metric. Thus, when further choosing the best results, unsupervised metrics are referred, since we perform unsupervised learning, where in theory no label information is available. Additionally the clustering accuracy is given, since this is a metric which is well known and can be easily understood (50\% Accuracy means that 50\% of the data is clustered correctly). The metrics are calculated based on the whole test set in this work. Although algorithms with minibatches are used, the calculation of the metrics is done after clustering all test samples into the defined number of clusters. Otherwise, the batch size would directly influence the results, i.e. when choosing a small batch size $B$ which is nearly equal to the number of clusters $K$, the results would be very good, since every cluster will describe just a few samples.\\
+Table \ref{tab:ClusterClassesmapping} represents a general mapping of cluster labels to class labels. More details about this and the usage of this information for metric calculation will be given in the following.
+	\begin{table}[htb!]
+    		\centering
+    		\caption{Cluster to Classes mapping}
+    		\label{tab:ClusterClassesmapping}
+    		\begin{tabular}{l|cccc|c}
+        		Cluster $\backslash$ Class & $Y_1$ & $Y_2$ & $\cdots$ & $Y_s$ & $Sums$\\ \hline
+        		$C_1$ & $n_{11}$ & $n_{12}$ & $\cdots$ & $n_{1s}$ & $a_1$\\
+        		$C_2$ & $n_{21}$ & $n_{22}$ & $\cdots$ & $n_{2s}$ & $a_2$\\
+        		$\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$ & $\vdots$\\
+        		$C_r$ & $n_{r1}$ & $n_{r2}$ & $\cdots$ & $n_{rs}$ & $a_r$\\ \hline
+        		$Sums$ & $b_1$ & $b_2$ & $\cdots$ & $b_s$ & \\
+    		\end{tabular}
+	\end{table}
+\begin{description}
+	\item[Clustering Accuracy (ACC)]\hfill \\
+	The clustering accuracy, sometimes also named as purity, is a simple and transparent evaluation measure. To compute the clustering accuracy, each cluster $C$ is assigned to the class $Y$ which is most frequent in this cluster. Then the accuracy of this assignment is counted by easily computing the number of correctly assigned samples relative to the overall number of samples $N$. This can be written as given in formula \ref{eq:ClusterAccuracy} \cite{Manning08InformationRetrieval}.
+	\begin{align}
+		ACC(C,Y) = \dfrac{1}{N}\sum_{i=1}^s\underset{j}\max|C_i\cap Y_j|\label{eq:ClusterAccuracy}
+	\end{align}
+	\item[Normalized Mutual Information (NMI)]\hfill \\
+	The mutual information $I(Y;C)$ of two random variables, in our case between the cluster assignments $C$ and the true class labels $Y$, quantifies the amount of information which can be obtained about one random variable by observing the other random variable. In our case this is a measure, of how good the clustering reflects the true class labels. NMI is the normalized mutual information with the range between $0$ (bad clustering result) and $1$ (perfect clustering). The NMI is defined as in formula \ref{eq:NMI_general} with the mutual information $I(Y;C)$ and the entropies $H(Y)$ and $H(C)$ of the class labels or cluster labels respectively.
+	\begin{align}
+		NMI(Y,C) = \dfrac{2I(Y;C)}{H(Y)+H(C)}\label{eq:NMI_general}
+	\end{align}
+	Referring to table \ref{tab:ClusterClassesmapping}, we can calculate the entropies for the cluster labels and class labels with formula \ref{eq:Entropy_Cluster} and \ref{eq:Entropy_Class}.
+	\begin{align}
+		H(C) = -\sum_{i=1}^r\dfrac{a_i}{N}\log\dfrac{a_i}{N}\label{eq:Entropy_Cluster}\\
+		H(Y) = -\sum_{j=1}^s\dfrac{b_j}{N}\log\dfrac{b_j}{N}\label{eq:Entropy_Class}
+	\end{align}
+	The mutual information $I(Y;C)$ can be calculated by equation \ref{eq:MutualInformation}.
+	\begin{align}
+		I(Y;C) = \sum_{i=1}^r\sum_{j=1}^s\dfrac{n_{ij}}{N}\log\dfrac{n_{ij}/N}{a_ib_j/N^2}\label{eq:MutualInformation}
+	\end{align}
+	Inserting equation \ref{eq:Entropy_Cluster}, \ref{eq:Entropy_Class} and \ref{eq:MutualInformation} in formula \ref{eq:NMI_general} yields the final NMI value \cite{Vinh10NMI}.
+	\item[Adjusted Rand Index (ARI)]\hfill \\
+	The ARI can be seen as corrected-for-chance version of the Rand Index \cite{Rand71RandIndex}. The adjusted Rand index is in range $-1$ to $1$. It takes the value $0$ when the index equals its expected value, $-1$ when the two distributions are totally different and $1$ when they are equal distributed. In general the ARI is given by formula \ref{eq:AdjustedRandIndex_general}.
+	\begin{align}
+		ARI = \dfrac{Index - ExpectedIndex}{MaxIndex - ExpectedIndex}\label{eq:AdjustedRandIndex_general}
+	\end{align}
+	With having a contingency table as table \ref{tab:ClusterClassesmapping} for comparing the two partitions classes and clusters. When using ARI as unsupervised metric with no prior information, the classes are assumed to be uniform distribution, which is also the case in our datasets. This contingency table gives the mapping from clusters to class labels. With this table now the specific ARI can be calculated, as given in formula \ref{eq:AdjustedRandIndex_specific} \cite{Yeung01ARI}.
+	\begin{align}
+		ARI = \dfrac{\sum_{ij}\binom{n_{ij}}{2}-[\sum_i\binom{a_i}{2}\sum_j\binom{b_j}{2}]/\binom{N}{2}}{\dfrac{1}{2}[\sum_i\binom{a_i}{2}+\sum_j\binom{b_j}{2}]-[\sum_i\binom{a_i}{2}\sum_j\binom{b_j}{2}]/\binom{N}{2}}\label{eq:AdjustedRandIndex_specific}
+	\end{align}
+\end{description} 
 \section{Investigated Hyperparameters}
+In this chapter the investigated hyperparameters and their modifications are described. As already mentioned previously, the hyperparameters can be split into two groups. The model-related hyperparameters and training specific hyperparameters.\\
+Generally, there exists a huge number of hyperparameters. Since all hyperparameters can possibly have an influence on another not all combinations can be tested. Therefore the hyperparameters are (in the most cases) tested by their own and the hyperparamter which yields the best results will be used for further experiments. Additionally, first the feature extraction models are adapted and optimized. Based on the optimized feature extraction models, the clustering models (i.e. IDEC, kmeans, gmm) will be investigated.
+\subsection{Model-related Hyperparameters}
+First, the model-related hyperparameters are investigated to find good set-up for further improving the models by adapting the training-related hyperparameters. In our case of convolutional layers, the architecture-related hyperparameters are i.e. kernel size, filter size, number of hidden layers. Due to time restrictions in this work, these are not further investigated. As base architecture the model drawn in \ref{fig:AE_ModelArchitecture} is used with 4 convolutional and one fully-connected layer and mirrored structure for encoder and decoder. The filter sizes are $16-32-64-128$ for the encoder and vice-versa for the decoder. Kernel size is set to $4$ and stride is $1$. We use max pooling with $2x2$ pooling size for dimensionality reduction. The decoder uses deconvolution layers with kernel size $4$ and stride equals to $2$.\\
+In the following, it is described which hyperparameters will be investigated per introduced Model.
+\begin{description}
+	\item[Autoencoder]\hfill \\
+	For the Autoencoder, the influence of the latent size is investigated. Therefore the defined metrics over all datasets for different values of $n\_latent$ are evaluated: $[5, 10, 20, 32, 64, 128, 256]$. Further no specific model hyperparameter exists.
+	\item[Variational Autoencoder]\hfill \\
+	For the Varitaional Autoencoder, the influence of the latent size is investigated. Therefore the defined metrics over all datasets for different values of $n\_latent$ are evaluated: $[5, 10, 20, 32, 64, 128, 256]$. Further no specific model hyperparameter exists.
+	\item[Discriminative Autoencoder]\hfill \\
+	Base architecture is the Autoencoder with the chosen best suitable $n\_latent$. Hyperparameters of the discriminative Autoencoder are the weighting for the reconstruction loss $\lambda_r$ and the measure for the uncertainty of the anchor pairs $\alpha$. They both influence directly the loss and so the optimization task. Thus they are tested jointly. $\alpha$ is checked for the values $[0, 0.5, 1]$ and $\lambda_r$ is set to $[1, 0.1, 0.01, 0.001]$. This results in $12$ tests per dataset. In \cite{DiscriminativeClustering} they propose a value of $0.001$ for $\lambda_r$ for MNIST, but no value for $\alpha$ is given.
+	\item[Gumbel Variational Autoencoder]\hfill \\
+	For the Gumbel VAE, the temperature $\tau$ is a hyperparameter. Since $\tau$ directly influences the latent space, this hyperparameter is investigated jointly with the size of the latent space $n\_latent$. $\tau$ is therefore set to $[10, 5, 2, 1, 0.5]$ with $n\_latent$ is set to $[5, 10, 20]$. This gives $15$ runs per dataset.
+	\item[K-Means \& GMM \& IDEC]\hfill \\
+	For the clustering algorithms K-Means, GMM and IDEC, the same hyperparameters are investigated. The number of clusters $K$ directly influence the clustering performance. Therefore we set $K$ to the values $[5, 10, 15, 20, 50]$, to have tests with less clusters than real classes and with much more clusters than true classes.
+\end{description}
+\subsection{Training-related Hyperparameters}
 \chapter{Results}
 \chapter{Summary and Outlook}
 
