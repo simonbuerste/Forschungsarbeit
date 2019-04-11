@@ -108,6 +108,8 @@ def visualize_embeddings(sess, log_dir, embedded_data, i, writer, params):
 
     # Fit UMAP to latentspace data
     reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
+    if np.isnan(embedded_data).any():
+        np.nan_to_num(embedded_data)
     reducer.fit(embedded_data)
     embedding = reducer.transform(embedded_data)
     # Read Labels from txt
