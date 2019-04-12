@@ -140,7 +140,10 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
             # if epoch > 5:
             #     params.lambda_r = 0.001
-            # if epoch == 0:
+            if epoch == 20:
+                params.initial_training_rate = params.initial_training_rate/10
+            elif epoch == 40:
+                params.initial_training_rate = params.initial_training_rate/10
             #     params.lambda_r = 0.001
             #     params.lamdba_c = 0.0
             #     params.lambda_d = 1.0
