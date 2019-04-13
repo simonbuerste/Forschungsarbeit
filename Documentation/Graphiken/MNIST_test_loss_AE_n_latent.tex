@@ -1,0 +1,32 @@
+% This file was created by matplotlib2tikz v0.7.4.
+\begin{tikzpicture}
+
+\begin{axis}[
+legend cell align={left},
+legend style={draw=white!80.0!black},
+tick align=outside,
+tick pos=left,
+title={test loss of AE at MNIST},
+x grid style={white!69.01960784313725!black},
+xlabel={n\_latent},
+xmin=-7.55, xmax=268.55,
+xtick style={color=black},
+y grid style={white!69.01960784313725!black},
+ylabel={test\_loss},
+ymin=0.000538408855209127, ymax=0.0156523040670436,
+ytick style={color=black}
+]
+\addplot [semithick, red]
+table {%
+5 0.014965308830142
+10 0.00681421812623739
+20 0.00344323040917516
+32 0.00236964877694845
+64 0.00143344863317907
+128 0.00133219780400395
+256 0.00122540409211069
+};
+\addlegendentry{AE}
+\end{axis}
+
+\end{tikzpicture}

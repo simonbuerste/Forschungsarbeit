@@ -1,0 +1,43 @@
+% This file was created by matplotlib2tikz v0.7.4.
+\begin{tikzpicture}
+
+\begin{axis}[
+legend cell align={left},
+legend style={draw=white!80.0!black},
+tick align=outside,
+tick pos=left,
+title={Clustering performance of AE VAE at CIFAR-10},
+x grid style={white!69.01960784313725!black},
+xlabel={n\_latent},
+xmin=-7.55, xmax=268.55,
+xtick style={color=black},
+y grid style={white!69.01960784313725!black},
+ylabel={NMI},
+ymin=0, ymax=1,
+ytick style={color=black}
+]
+\addplot [semithick, red]
+table {%
+5 0.0899999439716339
+10 0.104692973196507
+20 0.109597973525524
+32 0.0841954052448273
+64 0.0873732045292854
+128 0.0757577270269394
+256 0.0780473873019218
+};
+\addlegendentry{AE}
+\addplot [semithick, blue]
+table {%
+5 0.0941048413515091
+10 0.119100347161293
+20 0.100977852940559
+32 0.0942699462175369
+64 0.0708507969975471
+128 0.0451396480202675
+256 0.0331674069166183
+};
+\addlegendentry{VAE}
+\end{axis}
+
+\end{tikzpicture}

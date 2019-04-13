@@ -118,6 +118,12 @@ In this work state-of-the-art algorithms will be investigated, implemented and o
 \usepackage{booktabs}
 \usepackage{algorithm}
 \usepackage{algorithmic}
+\usepackage{tikz}
+\usepackage{pgfplots} 
+\usepackage{pgfgantt}
+\usepackage{pdflscape}
+\pgfplotsset{compat=newest} 
+\pgfplotsset{plot coordinates/math parser=false}
 
 \ifthenelse{\equal{\colortype}{color}}{
 	% colored text version:
@@ -748,7 +754,7 @@ Table \ref{tab:ClusterClassesmapping} represents a general mapping of cluster la
 \section{Investigated Hyperparameters}
 In this chapter the investigated hyperparameters and their modifications are described. As already mentioned previously, the hyperparameters can be split into two groups. The model-related hyperparameters and training specific hyperparameters.\\
 Generally, there exists a huge number of hyperparameters. Since all hyperparameters can possibly have an influence on another not all combinations can be tested. Therefore the hyperparameters are (in the most cases) tested by their own and the hyperparamter which yields the best results will be used for further experiments. Additionally, first the feature extraction models are adapted and optimized. Based on the optimized feature extraction models, the clustering models (i.e. IDEC, kmeans, gmm) will be investigated.
-\subsection{Model-related Hyperparameters}
+\subsection{Model-related Hyperparameters}\label{subsec:Model-related Hyperparameters}
 First, the model-related hyperparameters are investigated to find good set-up for further improving the models by adapting the training-related hyperparameters. In our case of convolutional layers, the architecture-related hyperparameters are i.e. kernel size, filter size, number of hidden layers. Due to time restrictions in this work, these are not further investigated. As base architecture the model drawn in \ref{fig:AE_ModelArchitecture} is used with 4 convolutional and one fully-connected layer and mirrored structure for encoder and decoder. The filter sizes are $16-32-64-128$ for the encoder and vice-versa for the decoder. Kernel size is set to $4$ and stride is $1$. We use max pooling with $2x2$ pooling size for dimensionality reduction. The decoder uses deconvolution layers with kernel size $4$ and stride equals to $2$.\\
 In the following, it is described which hyperparameters will be investigated per introduced Model.
 \begin{description}
@@ -757,14 +763,107 @@ In the following, it is described which hyperparameters will be investigated per
 	\item[Variational Autoencoder]\hfill \\
 	For the Varitaional Autoencoder, the influence of the latent size is investigated. Therefore the defined metrics over all datasets for different values of $n\_latent$ are evaluated: $[5, 10, 20, 32, 64, 128, 256]$. Further no specific model hyperparameter exists.
 	\item[Discriminative Autoencoder]\hfill \\
-	Base architecture is the Autoencoder with the chosen best suitable $n\_latent$. Hyperparameters of the discriminative Autoencoder are the weighting for the reconstruction loss $\lambda_r$ and the measure for the uncertainty of the anchor pairs $\alpha$. They both influence directly the loss and so the optimization task. Thus they are tested jointly. $\alpha$ is checked for the values $[0, 0.5, 1]$ and $\lambda_r$ is set to $[1, 0.1, 0.01, 0.001]$. This results in $12$ tests per dataset. In \cite{DiscriminativeClustering} they propose a value of $0.001$ for $\lambda_r$ for MNIST, but no value for $\alpha$ is given.
+	Base architecture is the Autoencoder with the chosen best suitable $n\_latent$. Hyperparameters of the discriminative Autoencoder are the weighting for the reconstruction loss $\lambda_r$ and the measure for the uncertainty of the anchor pairs $\alpha$. They both influence directly the loss and so the optimization task. Thus they are tested jointly. $\alpha$ is checked for the values $[0, 0.5, 1]$ and $\lambda_r$ is set to $[10, 1, 0.1, 0.01, 0.001]$. This results in $15$ tests per dataset. In \cite{DiscriminativeClustering} they propose a value of $0.001$ for $\lambda_r$ for MNIST, but no value for $\alpha$ is given.
 	\item[Gumbel Variational Autoencoder]\hfill \\
 	For the Gumbel VAE, the temperature $\tau$ is a hyperparameter. Since $\tau$ directly influences the latent space, this hyperparameter is investigated jointly with the size of the latent space $n\_latent$. $\tau$ is therefore set to $[10, 5, 2, 1, 0.5]$ with $n\_latent$ is set to $[5, 10, 20]$. This gives $15$ runs per dataset.
 	\item[K-Means \& GMM \& IDEC]\hfill \\
-	For the clustering algorithms K-Means, GMM and IDEC, the same hyperparameters are investigated. The number of clusters $K$ directly influence the clustering performance. Therefore we set $K$ to the values $[5, 10, 15, 20, 50]$, to have tests with less clusters than real classes and with much more clusters than true classes.
+	For the clustering algorithms K-Means, GMM and IDEC, the same hyperparameters are investigated. The number of clusters $K$ directly influence the clustering performance. Therefore $K$ is set to the values $[5, 10, 15, 20, 50]$, to have tests with less clusters than real classes and with much more clusters than true classes.
 \end{description}
-\subsection{Training-related Hyperparameters}
-\chapter{Results}
+\subsection{Training-related Hyperparameters}\label{subsec:Training-related Hyperparameters}
+The training of a deep neural network can be optimized and adapted on a wide range of hyperparameters. Typical examples for hyperparameters which directly influence the training procedure are the minibatch size, the choice of the optimizer with its parameters (i.e. Momentum), the learning rate choice or a learning rate schedule, the parameter initialization, number of epochs or methods like batch normalization or input scaling. In this work, the focus is on optimizing the training procedure of the latent models. As mentioned, a lot of possible hyperparameters can be adapted and optimized. Due to time restrictions, not all of them can be optimized. In the following, the investigated hyperparameters will be described and in which form the variation will take place.
+\begin{description}
+	\item[Batch Size]\hfill \\
+	Based on the samples inside a batch, the (noisy) gradient is calculated for further optimization of the network. Therefore it is clear, that the batch size directly influences the learning procedure of a deep neural network. Following \cite{Goodfellow-et-al-2016}, the minibatch sizes are driven by  different factors, i.e. that larger batches provides a more accurate estimate of the gradient, but with less than linear returns. It is also mentioned there, that small batches can offer a regularization effect, which often lead to a better generalization error with decreasing batch size. The reason for this can be the introduced noise through small batch sizes. Also it should be mentioned, that the batch size directly influence the memory consumption, so in general it is desired to use small batch sizes for faster computation and less memory consumption. In this work we compare batch sizes in the range from 64 to 1024, more precisely the following values are investigated: $[64, 128, 256, 512, 1024]$.\\ As the batch size directly influence the gradient calculation, and thus the optimization step, these values are jointly optimized with different learning rates, since a more noisy gradient perhaps needs a smaller step size for convergence \cite{Goodfellow-et-al-2016}.
+	\item[Constant Learning Rate]\hfill \\
+	As mentioned before and introduced in the beginning of the work, the optimization step depends on the learning rate $\gamma$, often also called step size. Different ways to vary the learning rate are used. Here the constant learning rates are varied. In a separate part different learning rate schedules are proposed. We investigated the fixed learning rates jointly with the above defined batch sizes. The investigated learning rates $\gamma$ are $[0.001, 0.01, 0.1]$.
+	\item[Static Learning Rate Schedule]\hfill \\
+	What can be a remaining challenge when having a constant learning rate, is a possible slow convergence with a small learning rate or an oscillation around a local minima with too large learning rates. Therefore a compromise between a fast convergence at the beginning (high learning rate) and an accurate update around the local minima (low learning rate) is desired. To combine both points, learning rate schedules are used, where the learning rate $\gamma$ decays over the number of epochs following a specific schedule. Different schedules are used an their effect on clustering is investigated. The different schedules will be introduced in the following.
+	\begin{description}
+		\item[Step decay]: Step decay steps down the learning rate, as it name says. After a defined time interval $t_0$, the learning rate steps down to $c\cdot\gamma_0$ with the decay factor $c$ and the initial learning rate $\gamma_0$. Then the time interval starts again and the next decay, leading to the learning rate $c^2\cdot\gamma_o$ takes place at $2t_0$ \cite{LectureNotes_DeepLearning}. The values for the time interval $t_0$, initial learning rate $\gamma_0$ and the decay factor $c$ will be defined based on the results which will be obtained by previous defined results.
+		\item[Exponential decay]: The exponential decay has an exponential learning rate curve starting from $t_0$. Before, the learning rate is constant. The learning rate with exponential can be calculated as stated in formula \ref{eq:ExponentialDecay} \cite{LectureNotes_DeepLearning}.
+		\begin{align}
+			\gamma(t) = \begin{cases} \gamma_0 & t \leq t_0\\\gamma_0\textrm{e}^{-c(t-t_0)} & t > t_0\\ \end{cases}\label{eq:ExponentialDecay}
+		\end{align}
+		The values for the time interval $t_0$, initial learning rate $\gamma_0$ and the decay factor $c$ will be defined based on the results which will be obtained by previous defined results.
+		\item[Triangular Learning Rate]: This learning rate is a cyclic learning rate, which periodically perform the same learning rate schedule. As given in \cite{Smith15CyclicLearningRate}, different numerical functional forms for the cyclic adoption are possible (i.e. triangular window, welch window, and a hann window) and they all produce equivalent results. That's why the mathematical easiest function will be used, the triangular learning rate. The learning rate inside the stepsize $t_0$ can be described by equation \ref{eq:Lr_Triangular} with the sign depending on step (in this work, for odd steps the sign is positive, so learning rate starts at $base\_lr$).
+		\begin{align}
+			\gamma(t) = \pm\dfrac{max\_lr-base\_lr}{t_0}t\label{eq:Lr_Triangular}
+		\end{align}		
+		The learning rate schedule is visualized in figure \ref{fig:Triangular Learning rate}. The blue line represent the learning rate values changing between the bounds. The parameter for the $t_0$ is the number of iterations in half a cycle. The bounds $max\_lr$ and $base\_lr$ are the defined maximum or minimum learning rate. The values for the maximum and minimum learning will be defined based on the results which will be obtained by previous defined results.
+		\begin{figure}[htb!]
+			\centering
+			\includegraphics[width=0.3\linewidth]{Graphiken/triangularWindow}
+			\caption{Triangular learning rate schedule \cite{Smith15CyclicLearningRate}}
+			\label{fig:Triangular Learning rate}
+		\end{figure}
+		\item[Linear Warmup]: Learning rate warmup is a common heuristic used by many works for training deep neural networks. Warmup is motivated to use large learning rates without causing training instability \cite{gotmare2018Warmup}. As it just influence the warmup, it can be used in combination with any other schedule. In this work a linear warmup starting from $0$ to $\gamma_0$ over a defined interval $t_0$ will be used. The learning rate in the time interval $[0, t_0]$ is defined in formula \ref{eq:Lr_Warmup}.
+		\begin{align}
+			\gamma(t) = \dfrac{\gamma_0}{t_0}t\label{eq:Lr_Warmup}
+		\end{align}
+		The parameters $\gamma_0$ and $t_0$ will be defined based on the results which will be obtained by previous defined results.
+	\end{description}
+	\item[Optimizer]\hfill \\
+	\item[Parameter Initialization]\hfill \\
+\end{description}
+\chapter{Experiments and Results}
+In this chapter, the specific experiments and their results will be described. Since all possible variations of the hyperparameters for all models on all datasets would result in a tremendous amount of runs, the optimization is done on specific models, namely based on the standard Autoencoder and Variational Autoencoder which are introduced above, since they are the base for the adapted models. Nevertheless, obtained optimal parameters will also be checked on the other models.\\
+The latent models are trained for 50 epochs on the training dataset using the Adam optimizer with the default values $\beta_1=0.9$, $\beta_2=0.999$ and $\epsilon = 1x10^{-8}$ \cite{Kingma14AdamOptimizer}. The clustering algorithm is trained on the test dataset for 20 epochs, if not mentioned explicitly. The obtained results base on unseen test dataset. As clustering algorithm kmeans will be used. The number of clusters is set to the original class number, if not explicitly mentioned.\\
+\section{Model-related Hyperparameters}
+As introduced in subsection \ref{subsec:Model-related Hyperparameters}, the different defined model-related hyperparameters will be investigated and the optimum parametetrization for the different models will be found. 
+\paragraph{Autoencoder \& Variational Autoencoder}
+As given and introduced in the previous chapter, for the Autoencoder and the Variational Autoencoder, we check the effect of the latent size for the clustering performance with kmeans clustering. Therefore we fixed other hyperparameters and set the value of $n_{latent}$ to $[5, 10, 20, 32, 64, 128, 256]$. The other hyperparameters are set to the following values: $batchsize_{training} = 256$, $batchsize_{clustering} = 500$, $\gamma_0 = 0.001$. Figure \ref{fig:ClusterPerformance_latentSpace} shows exemplary the NMI values for the MNIST (\ref{fig:ClusterNMI_MNIST_n_latent}) and CIFAR-10 (\ref{fig:ClusterNMI_CIFAR-10_n_latent}) dataset.
+	\begin{figure}[htb!]
+		\centering
+		\subfloat[Cluster Accuracy\label{fig:ClusterNMI_MNIST_n_latent}]{%	
+		\resizebox{0.45\linewidth}{!}{\input{Graphiken/MNIST_NMI_AE_VAE_n_latent}}}
+		\qquad
+		\subfloat[Normalized Mutual Information\label{fig:ClusterNMI_CIFAR-10_n_latent}]{%			
+		\resizebox{0.45\linewidth}{!}{\input{Graphiken/CIFAR-10_NMI_AE_VAE_n_latent}}}
+		\caption{Clustering Performance (NMI) for AE/VAE + kmeans on different sizes of latent space for MNIST and CIFAR-10}
+		\label{fig:ClusterPerformance_latentSpace}
+	\end{figure}
+For MNIST, it can be obtained that a smaller latent space increases the final clustering performance in this set-up. But it has to be taken care, that this holds not in general for all clustering algorithms, because for a higher dimensional latent space (i.e. $n_{latent} = 256$) for a clustering algorithm based on distances like kmeans it is hard to determine if the calculated distances are meaningful (also denoted as "course of dimensionality"). Also it can be obtained, that a VAE is much more sensitive to higher dimensional latent spaces, since there the NMI approaches $0$, while the AE stays almost stable from $n_{latent} = 64$ onwards. General, the smaller the bottleneck is , the more it is enforcing the feature extraction model to generate meaningful latent representations $\underline{z}$. From a clustering point of view, this is an important point. But also the difference of the datasets can be seen very good. At CIFAR-10, the gain of clustering performance for lower sizes of latent space is not as big as for MNIST. 
+On the other side is obvious, that smaller latent spaces are producing a harder job for the decoder to decode this low dimensional representation to the original image. This is proved by figure \ref{fig:TestLoss_AE_latentSpace}, which shows the test loss of the Autoencoder for different $n_{latent}$ at the MNIST dataset.
+	\begin{figure}[htb!]
+		\centering
+		\resizebox{0.45\linewidth}{!}{\input{Graphiken/MNIST_test_loss_AE_n_latent}}
+		\caption{Test Loss of the AE on different sizes of latent space at MNIST}
+		\label{fig:TestLoss_AE_latentSpace}
+	\end{figure}
+Additionally, the effect can be seen directly at the reconstructed images. Therefore figure \ref{fig:Reconstructions_nLatent} shows the original image (\ref{fig:CIFAR-10_OriginalImage}) and reconstructed images after 50 training epochs for $n_{latent}=5$ (\ref{fig:CIFAR-10_nLatent_5}), $n_{latent}=32$ (\ref{fig:CIFAR-10_nLatent_32}) and $n_{latent}=256$ (\ref{fig:CIFAR-10_nLatent_256}). The image is drawn from the CIFAR-10 dataset, to show this effect on a more difficult image (i.e. colored) than on an "easy" sample like from MNIST.
+\begin{figure}[htb!]
+	\centering
+	\subfloat[Original Image\label{fig:CIFAR-10_OriginalImage}]{%			
+		\includegraphics[width=0.1\linewidth]{Graphiken/CIFAR-10_OriginalImage}}
+	\qquad
+	\subfloat[$n_{latent}=5$\label{fig:CIFAR-10_nLatent_5}]{%			
+		\includegraphics[width=0.1\linewidth]{Graphiken/CIFAR-10_Recon_nlatent_5}}
+	\qquad
+	\subfloat[$n_{latent}=32$\label{fig:CIFAR-10_nLatent_32}]{%			
+		\includegraphics[width=0.1\linewidth]{Graphiken/CIFAR-10_Recon_nlatent_32}}
+	\qquad
+	\subfloat[$n_{latent}=256$\label{fig:CIFAR-10_nLatent_256}]{%			
+		\includegraphics[width=0.1\linewidth]{Graphiken/CIFAR-10_Recon_nlatent_256}}
+	\qquad
+	\caption{Original and reconstructed images for different $n_{latent}$}
+	\label{fig:Reconstructions_nLatent}
+\end{figure}
+This images show directly the impact of the different latent spaces for the reconstructions. While the smallest latent space ($n_{latent}=5$) can just provide some deviations of colour without any visible edges or shapes, $n_{latent}=32$ provides already the shapes of the frog and a distinction between the frog and the background. With a latent space size of $256$, it can be already detected that a frog is at the picture and more details like the eye can be reconstructed.
+In the future work, a latent space size of $10$ is used, since the main focus in this work lies on clustering, while still preserving as much information about the image as possible for reconstruction. As it can be seen in figure \ref{fig:TestLoss_AE_latentSpace}, a latent space with $n_{latent}=10$ reduces for MNIST the test loss already by circa a half in comparison to a size of $5$. To show the effect of the latent space size on the different datasets, table \ref{tab:ClusterACC_n_latent} summarizes the clustering accuracies obtained on the different datasets with different values of $n_{latent}$ indicating the best result per dataset in \textbf{bold}.
+	\begin{table}[htb!]
+    		\centering
+    		\caption{Clustering Accuracy in \% of Autoencoder + kmeans on different datasets with different latent space sizes}
+    		\label{tab:ClusterACC_n_latent}
+    		\begin{tabular}{l|ccccccc}
+        		Dataset $\backslash$ $n_{latent}$ & $5$ & $10$ & $20$ & $32$ & $64$ & $128$ & $256$\\ \hline
+        		MNIST & $\mathbf{87.2}$ & $79.5$ & $73.6$ & $65.8$ & $64.0$ & $64.7$ & $64.2$\\
+        		F-MNIST & $\mathbf{63.3}$ & $62.0$ & $58.4$ & $57.7$ & $56.9$ & $61.9$ & $61.8$\\
+        		CIFAR-10 & $23.4$ & $24.6$ & $\mathbf{24.9}$ & $23.1$ & $23.3$ & $22.1$ & $22.3$\\
+        		CIFAR-100 & $14.4$ & $15.7$ & $15.8$ & $\mathbf{16.2}$ & $15.8$ & $17.7$ & $15.0$\\
+        		Imagenet-10 & $24.1$ & $23.9$ & $\mathbf{25.8}$ & $25.0$ & $23.1$ & $25.4$ & $23.6$\\
+        		Imagenet-Dog & $19.0$ & $21.1$ & $20.5$ & $20.9$ & $20.9$ & $20.9$ & $\mathbf{22.1}$\\
+    		\end{tabular}
+	\end{table}
 \chapter{Summary and Outlook}
 
 \appendix
