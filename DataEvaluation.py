@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib2tikz import save as savetikz
 
-directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/Discriminative_AE"
+directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/Gumbel_VAE"
 
 list_dir = next(os.walk(directory))[1]
 summary = []
 visu_data = []
 datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-Dog", "IMAGENET-10"]
-model_visu = ["discriminative_AE"] # "AE", "VAE", "discriminative_AE", "featureselective_AE", "Gumbel_VAE"
+model_visu = ["Gumbel_VAE"] # "AE", "VAE", "discriminative_AE", "featureselective_AE", "Gumbel_VAE"
 
 metric_visu = ["Accuracy", "NMI"]  # "Accuracy_best", "NMI_best", "ARI_best"
 
@@ -23,7 +23,7 @@ model_color = {
     "discriminative_AE":    'green',
     "Gumbel_VAE":           'black'}
 
-hyperparameters = ["alpha", "lambda_r"] # ["initial_training_rate", "train_batch_size"]
+hyperparameters = ["n_latent", "temperature_gumbel"]  # ["initial_training_rate", "train_batch_size"] ["alpha", "lambda_r"]
 for dataset_visu in datasets:
     for x in list_dir:
         # define the filenames
@@ -168,6 +168,7 @@ for dataset_visu in datasets:
             savepath = os.path.join(directory, '%s_%s_%s_%s' % (dataset_visu, metric, model_string, hyperparameters[0]))
             savetikz(savepath + '.tex')
             plt.savefig(savepath + '.png')
+            plt.savefig(savepath+'.eps', format = 'eps', dpi = 1000)
         plt.show(block=True)
     elif len(hyperparameters) == 2:
         for l, model in enumerate(model_visu):
@@ -215,6 +216,7 @@ for dataset_visu in datasets:
                 savepath = os.path.join(directory, '%s_%s_%s_%s_%s' % (dataset_visu, model, metric, hyperparameters[0], hyperparameters[1]))
                 savetikz(savepath+'.tex')
                 plt.savefig(savepath+'.png')
+                plt.savefig(savepath+'.eps', format = 'eps', dpi = 1000)
         plt.show()
     else:
         print("Sure you want to visualize this?")
