@@ -118,6 +118,7 @@ In this work state-of-the-art algorithms will be investigated, implemented and o
 \usepackage{booktabs}
 \usepackage{algorithm}
 \usepackage{algorithmic}
+\usepackage{tabularx}
 \usepackage{tikz}
 \usepackage{pgfplots} 
 \usepackage{pgfgantt}
@@ -765,7 +766,7 @@ In the following, it is described which hyperparameters will be investigated per
 	\item[Discriminative Autoencoder]\hfill \\
 	Base architecture is the Autoencoder with the chosen best suitable $n\_latent$. Hyperparameters of the discriminative Autoencoder are the weighting for the reconstruction loss $\lambda_r$ and the measure for the uncertainty of the anchor pairs $\alpha$. They both influence directly the loss and so the optimization task. Thus they are tested jointly. $\alpha$ is checked for the values $[0, 0.5, 1]$ and $\lambda_r$ is set to $[10, 1, 0.1, 0.01, 0.001]$. This results in $15$ tests per dataset. In \cite{DiscriminativeClustering} they propose a value of $0.001$ for $\lambda_r$ for MNIST, but no value for $\alpha$ is given.
 	\item[Gumbel Variational Autoencoder]\hfill \\
-	For the Gumbel VAE, the temperature $\tau$ is a hyperparameter. Since $\tau$ directly influences the latent space, this hyperparameter is investigated jointly with the size of the latent space $n\_latent$. $\tau$ is therefore set to $[10, 5, 2, 1, 0.5]$ with $n\_latent$ is set to $[5, 10, 20]$. This gives $15$ runs per dataset.
+	For the Gumbel VAE, the temperature $\tau$ is a hyperparameter. Since $\tau$ directly influences the latent space, this hyperparameter is investigated jointly with the size of the latent space $n\_latent$. $\tau$ is therefore set to $[10, 5, 2, 1]$ with $n\_latent$ is set to $[5, 10, 64]$. This gives $15$ runs per dataset.
 	\item[K-Means \& GMM \& IDEC]\hfill \\
 	For the clustering algorithms K-Means, GMM and IDEC, the same hyperparameters are investigated. The number of clusters $K$ directly influence the clustering performance. Therefore $K$ is set to the values $[5, 10, 15, 20, 50]$, to have tests with less clusters than real classes and with much more clusters than true classes.
 \end{description}
@@ -785,9 +786,9 @@ The training of a deep neural network can be optimized and adapted on a wide ran
 			\gamma(t) = \begin{cases} \gamma_0 & t \leq t_0\\\gamma_0\textrm{e}^{-c(t-t_0)} & t > t_0\\ \end{cases}\label{eq:ExponentialDecay}
 		\end{align}
 		The values for the time interval $t_0$, initial learning rate $\gamma_0$ and the decay factor $c$ will be defined based on the results which will be obtained by previous defined results.
-		\item[Triangular Learning Rate]: This learning rate is a cyclic learning rate, which periodically perform the same learning rate schedule. As given in \cite{Smith15CyclicLearningRate}, different numerical functional forms for the cyclic adoption are possible (i.e. triangular window, welch window, and a hann window) and they all produce equivalent results. That's why the mathematical easiest function will be used, the triangular learning rate. The learning rate inside the stepsize $t_0$ can be described by equation \ref{eq:Lr_Triangular} with the sign depending on step (in this work, for odd steps the sign is positive, so learning rate starts at $base\_lr$).
+		\item[Triangular Learning Rate]: This learning rate is a cyclic learning rate, which periodically perform the same learning rate schedule. As given in \cite{Smith15CyclicLearningRate}, different numerical functional forms for the cyclic adoption are possible (i.e. triangular window, welch window, and a hann window) and they all produce equivalent results. That's why the mathematical easiest function will be used, the triangular learning rate. The learning rate inside the stepsize $t_0$ can be described by equation \ref{eq:Lr_Triangular} with the sign and $\gamma_0$ depending on the step (in this work, for odd steps the sign is positive and $\gamma_0 = base\_lr$, so learning rate starts at $base\_lr$).
 		\begin{align}
-			\gamma(t) = \pm\dfrac{max\_lr-base\_lr}{t_0}t\label{eq:Lr_Triangular}
+			\gamma(t) = \gamma_0\pm\dfrac{max\_lr-base\_lr}{t_0}t\label{eq:Lr_Triangular}
 		\end{align}		
 		The learning rate schedule is visualized in figure \ref{fig:Triangular Learning rate}. The blue line represent the learning rate values changing between the bounds. The parameter for the $t_0$ is the number of iterations in half a cycle. The bounds $max\_lr$ and $base\_lr$ are the defined maximum or minimum learning rate. The values for the maximum and minimum learning will be defined based on the results which will be obtained by previous defined results.
 		\begin{figure}[htb!]
@@ -802,15 +803,13 @@ The training of a deep neural network can be optimized and adapted on a wide ran
 		\end{align}
 		The parameters $\gamma_0$ and $t_0$ will be defined based on the results which will be obtained by previous defined results.
 	\end{description}
-	\item[Optimizer]\hfill \\
-	\item[Parameter Initialization]\hfill \\
 \end{description}
 \chapter{Experiments and Results}
 In this chapter, the specific experiments and their results will be described. Since all possible variations of the hyperparameters for all models on all datasets would result in a tremendous amount of runs, the optimization is done on specific models, namely based on the standard Autoencoder and Variational Autoencoder which are introduced above, since they are the base for the adapted models. Nevertheless, obtained optimal parameters will also be checked on the other models.\\
 The latent models are trained for 50 epochs on the training dataset using the Adam optimizer with the default values $\beta_1=0.9$, $\beta_2=0.999$ and $\epsilon = 1x10^{-8}$ \cite{Kingma14AdamOptimizer}. The clustering algorithm is trained on the test dataset for 20 epochs, if not mentioned explicitly. The obtained results base on unseen test dataset. As clustering algorithm kmeans will be used. The number of clusters is set to the original class number, if not explicitly mentioned.\\
 \section{Model-related Hyperparameters}
 As introduced in subsection \ref{subsec:Model-related Hyperparameters}, the different defined model-related hyperparameters will be investigated and the optimum parametetrization for the different models will be found. 
-\paragraph{Autoencoder \& Variational Autoencoder}
+\paragraph{Autoencoder \& Variational Autoencoder}\hfill \\
 As given and introduced in the previous chapter, for the Autoencoder and the Variational Autoencoder, we check the effect of the latent size for the clustering performance with kmeans clustering. Therefore we fixed other hyperparameters and set the value of $n_{latent}$ to $[5, 10, 20, 32, 64, 128, 256]$. The other hyperparameters are set to the following values: $batchsize_{training} = 256$, $batchsize_{clustering} = 500$, $\gamma_0 = 0.001$. Figure \ref{fig:ClusterPerformance_latentSpace} shows exemplary the NMI values for the MNIST (\ref{fig:ClusterNMI_MNIST_n_latent}) and CIFAR-10 (\ref{fig:ClusterNMI_CIFAR-10_n_latent}) dataset.
 	\begin{figure}[htb!]
 		\centering
@@ -864,6 +863,102 @@ In the future work, a latent space size of $10$ is used, since the main focus in
         		Imagenet-Dog & $19.0$ & $21.1$ & $20.5$ & $20.9$ & $20.9$ & $20.9$ & $\mathbf{22.1}$\\
     		\end{tabular}
 	\end{table}
+Further in this work, a latent size of $10$ is used, since good clustering results are achieved with this setup and the reconstruction loss can be reduced in comparison to a even smaller latent space, i.e. $5$.
+	\paragraph{Discriminative Autoencoder}\hfill \\
+	Based on the obtained latent size $n_{latent} = 10$, the hyperparmeters of the discriminative autoencoder are investigated. Therefore the parameters $\alpha$ and $\lambda_r$ are varied. Out of the training batch size, which is set to $1000$ ,the other hyperparameters stays as described above. This high batch size is necessary that the assumption about uniform distributed samples over the different classes holds.
+	\\Figure \ref{fig:ClusterPerformance_b_AE_Hyperparameters} shows the resulting NMI values for the different settings of the hyperparameters for MNIST (\ref{fig:MNIST_NMI_b_AE_alpha_lambda}) and Imagenet-10 (\ref{fig:IMAGENET10_NMI_b_AE_alpha_lambda}).
+	\begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_b_AE_alpha_lambda}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_discriminative_AE_NMI_alpha_lambda_r}}}
+		\qquad
+		\subfloat[NMI Imagenet-10\label{fig:IMAGENET10_NMI_b_AE_alpha_lambda}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-10_discriminative_AE_NMI_alpha_lambda_r}}}
+		\caption{Clustering Performance (NMI) for discriminative AE + kmeans on different $\alpha$ and $\lambda_r$ for MNIST and Imagenet-10}
+		\label{fig:ClusterPerformance_b_AE_Hyperparameters}
+	\end{figure}
+	Following the behaviour of the NMI and the clustering objective, the hyperparameters $\lambda_r = 1$ and $\alpha=0.5$ are chosen, since these values give good clustering results for the different dataset. Referring to \cite{DiscriminativeClustering}, $\lambda_r = 0.001$ is proposed. But in this paper, the reconstruction is not normalized with the number of samples per minibatch, so for a batch size of $1000$ as used in this experiment, $\lambda_r$ equals to the setup proposed by the paper. Nevertheless, with the current setup, a clustering accuracy of $ca. 92\%$ can't be achieved within 50 epochs, as claimed in the original paper.
+	\paragraph{Gumbel Variational Autoencoder}\hfill \\
+	The main hyperparameter for the Gumbel VAE is the temperature $\tau$ of the Gumbel Softmax distribution. Since the Gumbel distributions changes directly the Latent Space, also the latent space is slighty varied. These two hyperparameters are investigated jointly for $\tau = [10, 5, 2, 1]$ and $n_{latent} = [5, 10, 20]$. The corresponding results and effect on clustering performance can be obtained by figure \ref{fig:ClusterPerformance_g_VAE_Hyperparameters} based on the two datasets MNIST (\ref{fig:MNIST_NMI_g_VAE_tau_nlatent}) and Imagenet-10 (\ref{fig:IMAGENET10_NMI_g_VAE_tau_nlatent}). In figure \ref{fig:MNIST_NMI_g_VAE_tau_nlatent} two observation points are missing, due to time restrictions they will be neglected, but due to observations on other datasets, it can be accepted since there lower performance is expected than at the other observation points.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_g_VAE_tau_nlatent}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_Gumbel_VAE_NMI_n_latent_temperature_gumbel}}}
+		\qquad
+		\subfloat[NMI Imagenet-10\label{fig:IMAGENET10_NMI_g_VAE_tau_nlatent}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-10_Gumbel_VAE_NMI_n_latent_temperature_gumbel}}}
+		\caption{Clustering Performance (NMI) for Gumbel VAE + kmeans on different $\tau$ and $n_{latent}$ for MNIST and Imagenet-10}
+		\label{fig:ClusterPerformance_g_VAE_Hyperparameters}
+	\end{figure}
+	The hyperparameter $n_{latent}$ stays fixed at value $10$ due to previous observation and comparability to the other architectures. But it can be seen that the size of $n_{latent}$ correlates with the temperature $\tau$. With given $n_{latent}=10$, the temperature is set to $\tau=10$ based on the observations of figure \ref{fig:MNIST_NMI_g_VAE_tau_nlatent}. For $n_{latent}=10$, the effect of the temperature $\tau$ for the discreteness of the latent representation $\underline{z}$ is visualized in figure \ref{fig:Different_GumbelTemperatures} with the corresponding original image (\ref{fig:OriginalImage_g_VAE}) drawn from the Imagenet-10 dataset.
+	\begin{figure}[htb!]
+	\centering
+	\subfloat[Original Image\label{fig:OriginalImage_g_VAE}]{%			
+		\includegraphics[width=0.15\linewidth]{Graphiken/Imagenet-10_OriginalImage_g_VAE}}
+	\qquad
+	\subfloat[$\tau=1$\label{fig:z_tau_1}]{%			
+		\includegraphics[width=0.2\linewidth]{Graphiken/Imagenet-10_latentspace_tau1_g_VAE}}
+	\qquad
+	\subfloat[$\tau=2$\label{fig:z_tau_2}]{%			
+		\includegraphics[width=0.2\linewidth]{Graphiken/Imagenet-10_latentspace_tau2_g_VAE}}
+	\qquad
+	\subfloat[$\tau=5$\label{fig:z_tau_5}]{%			
+		\includegraphics[width=0.2\linewidth]{Graphiken/Imagenet-10_latentspace_tau5_g_VAE}}
+	\qquad
+	\subfloat[$\tau=10$\label{fig:z_tau_10}]{%			
+		\includegraphics[width=0.2\linewidth]{Graphiken/Imagenet-10_latentspace_tau10_g_VAE}}
+	\qquad
+	\caption{Original iamge and latent space for different values of $\tau$}
+	\label{fig:Different_GumbelTemperatures}
+\end{figure}
+The figures shows the latent representation for the different temperature values $1$ (\ref{fig:z_tau_1}), $2$ (\ref{fig:z_tau_2}), $5$ (\ref{fig:z_tau_5}) and $10$ (\ref{fig:z_tau_10}) after 50 epochs of training on Imagenet-10. The pixels represent the different neurons of the latent layer with a white pixel indicating an active neuron and black inactive. For $\tau = 10$ the activations are distributed over the different neurons, while for $\tau = 1$ we have a discrete latent representation $\underline{z}$ of the original input image. This effect can also be visualised by using an UMAP transformation into 2-d space of the above shown latent layer. This is illustrated in figure \ref{fig:Different_GumbelTemperatures_UMAP}
+	\begin{figure}[htb!]
+	\centering
+	\subfloat[$\tau=1$\label{fig:UMAP_z_tau_1}]{%			
+		\includegraphics[width=0.4\linewidth]{Graphiken/Imagenet-10_latentspace_tau1_UMAP_g_VAE}}
+	\qquad
+	\subfloat[$\tau=2$\label{fig:UMAP_z_tau_2}]{%			
+		\includegraphics[width=0.4\linewidth]{Graphiken/Imagenet-10_latentspace_tau2_UMAP_g_VAE}}
+	\qquad
+	\subfloat[$\tau=5$\label{fig:UMAP_z_tau_5}]{%			
+		\includegraphics[width=0.4\linewidth]{Graphiken/Imagenet-10_latentspace_tau5_UMAP_g_VAE}}
+	\qquad
+	\subfloat[$\tau=10$\label{fig:UMAP_z_tau_10}]{%			
+		\includegraphics[width=0.4\linewidth]{Graphiken/Imagenet-10_latentspace_tau10_UMAP_g_VAE}}
+	\qquad
+	\caption{UMAP-transformed latent space for different values of $\tau$}
+	\label{fig:Different_GumbelTemperatures_UMAP}
+\end{figure}
+Figure \ref{fig:Different_GumbelTemperatures_UMAP} shows the intention of using discretized latent representations for clustering. The samples from figure \ref{fig:UMAP_z_tau_1} seems to represent already different clusters, while in figure \ref{fig:UMAP_z_tau_10} the samples are distributed continuously in the latent space. A possible useful adoption of the Gumbel VAE could contain deliver additional information to the encoder, that similar images should have the same discrete latent representation. Due to time restrictions in this work, no further adoptions and improvements on the architecture of the Gumbel VAE could be done.\\
+Up to now, the model-related hyperparameters are optimized. In table \ref{tab:ClusterPerformance_Models_ModelrelatedParams} the performances of the different models are summarized with the above mentioned chosen hyperparameters. The best model per dataset is marked in \textbf{bold}. This will be seen as base for further optimization of the clustering performance by adapting the training-related hyperparamters.
+		\begin{table}[htb!]
+    		\centering
+    		\caption{Clustering Performance of models + kmeans on different datasets with chosen hyperparameters}
+    		\label{tab:ClusterPerformance_Models_ModelrelatedParams}
+    		\begin{tabular}{l|ccccccccc}
+    			\toprule
+    			\multicolumn{1}{c}{Dataset} & \multicolumn{3}{c}{MNIST} & \multicolumn{3}{c}{F-MNIST} & \multicolumn{3}{c}{CIFAR-10}\\
+        		\multicolumn{1}{c}{Metric} & ACC & NMI & ARI & ACC & NMI & ARI & ACC & NMI & ARI\\
+        		\midrule
+    			AE & $\mathbf{0.80}$ & $\mathbf{0.74}$ & $\mathbf{0.68}$ & $0.62$ & $\mathbf{0.62}$ & $\mathbf{0.45}$ & $0.25$ & $0.10$ & $0.06$\\
+        		discriminative AE & $0.77$ & $0.71$ & $0.63$ & $\mathbf{0.64}$ & $0.61$ & $0.44$ & $0.24$ & $0.09$ & $0.05$\\
+        		VAE & $0.80$ & $0.66$ & $0.62$ & $0.57$ & $0.50$ & $0.38$ & $\mathbf{0.26}$ & $\mathbf{0.12}$ & $\mathbf{0.07}$\\
+        		Gumbel VAE & $0.60$ & $0.50$ & $0.39$\\
+        		\bottomrule
+    		\end{tabular}    		
+    		\begin{tabular}{l|ccccccccc}
+    			\toprule
+    			\multicolumn{1}{c}{Dataset} & \multicolumn{3}{c}{CIFAR-100} & \multicolumn{3}{c}{Imagenet-10} & \multicolumn{3}{c}{Imagenet-Dog}\\
+        		\multicolumn{1}{c}{Metric} & ACC & NMI & ARI & ACC & NMI & ARI & ACC & NMI & ARI\\
+        		\midrule
+    			AE & $\mathbf{0.16}$ & $\mathbf{0.09}$ & $\mathbf{0.04}$ & $0.24$ & $0.11$ & $0.04$ & $0.21$ & $0.14$ & $0.04$\\
+        		discriminative AE & $0.11$ & $0.05$ & $0.01$ & $0.26$ & $\mathbf{0.15}$ & $0.05$ & $0.17$ & $0.10$ & $0.02$\\
+        		VAE & $\mathbf{0.16}$ & $\mathbf{0.09}$ & $0.03$ & $\mathbf{0.27}$ & $\mathbf{0.15}$ & $\mathbf{0.06}$ & $\mathbf{0.22}$ & $\mathbf{0.15}$ & $\mathbf{0.05}$\\
+        		Gumbel VAE & $0.14$ & $0.08$ & $0.02$ & $0.25$ & $0.12$ & $0.04$ & $0.20$ & $0.14$ & $0.03$\\
+        		\bottomrule
+    		\end{tabular}
+	\end{table}
+\section{Training-related Hyperparameters}
 \chapter{Summary and Outlook}
 
 \appendix
