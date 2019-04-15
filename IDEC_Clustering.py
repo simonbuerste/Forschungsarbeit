@@ -46,11 +46,11 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
 
         # Load Best eval_loss so far (if existent)
         best_json_path = os.path.join(model_dir, "metrics_eval_best_weights.json")
-        if os.path.isfile(best_json_path):
-            best_eval_metrics = Params(best_json_path)
-            best_eval_acc = best_eval_metrics.VAE_loss
-        else:
-            best_eval_acc = 0.0
+        # if os.path.isfile(best_json_path):
+        #     best_eval_metrics = Params(best_json_path)
+        #     best_eval_loss = best_eval_metrics.VAE_loss
+        # else:
+        best_eval_nmi = 0.0
 
         # Compute number of batches in one epoch (one full pass over the training set)
         num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
@@ -187,7 +187,7 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
             #last_save_path = os.path.join(model_dir, 'last_weights/', 'after-epoch')
             #last_saver.save(sess, last_save_path, global_step=epoch + 1)
 
-            if metrics_eval['Accuracy'] >= best_eval_acc:
+            if metrics_eval['Accuracy'] >= best_eval_nmi:
                 # Save best eval metrics in a json file in the model directory
                 save_dict_to_json(metrics_eval, best_json_path)
 
