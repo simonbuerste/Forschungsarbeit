@@ -10,6 +10,7 @@ from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
 from utils import Params
+from utils import learning_rate_schedules
 
 
 def train_sess(sess, model_spec, num_steps, writer, params):
@@ -138,32 +139,41 @@ def train_and_evaluate(train_model_spec, eval_model_spec, model_dir, params, con
             
         metrics_eval = {}
         for epoch in range(begin_at_epoch, begin_at_epoch + params.num_epochs):
+            # Save the "starting" point of learning rate
+            if epoch == 0:
+                learning_rate_start = params.initial_training_rate
+
             if params.learning_rate_schedule == "step_decay":
                 if epoch == 20:
-                    params.initial_training_rate = params.initial_training_rate/params.decay_factor
+                    params.initial_training_rate = params.initial_training_rate / params.decay_factor
                 elif epoch == 40:
-                    params.initial_training_rate = params.initial_training_rate/params.decay_factor
+                    params.initial_training_rate = params.initial_training_rate / params.decay_factor
             elif params.learning_rate_schedule == "exponential_decay":
                 if epoch == 0:
-                    learning_rate_epoch0 = params.initial_training_rate
-                    params.decay_factor = -np.log(1/(params.decay_factor**2))/(params.num_epochs-params.t0)
+                    params.decay_factor = -np.log(1 / (params.decay_factor ** 2)) / (params.num_epochs - params.t0)
                 if epoch >= params.t0:
-                    params.initial_training_rate = learning_rate_epoch0*np.exp(-params.decay_factor*(epoch-params.t0))
+                    params.initial_training_rate = learning_rate_start * np.exp(
+                        -params.decay_factor * (epoch - params.t0))
             elif params.learning_rate_schedule == "triangular":
                 if epoch == 0:
-                    base_lr = params.initial_training_rate/(params.decay_factor**2)
-                    max_lr = params.initial_training_rate
+                    base_lr = learning_rate_start / (params.decay_factor ** 2)
+                    max_lr = learning_rate_start
                     sign = 1
-                    stepsize = params.t0/2
+                    stepsize = params.t0 / 2
                     slope_counter = 0
-                if (epoch+1) % stepsize == 0:
-                    sign = sign*-1
+                if (epoch + 1) % stepsize == 0:
+                    sign = sign * -1
                     slope_counter = 0
                 if sign == 1:
-                    params.initial_training_rate = base_lr + slope_counter*(max_lr-base_lr)/stepsize
+                    params.initial_training_rate = base_lr + slope_counter * (max_lr - base_lr) / stepsize
                 elif sign == -1:
-                    params.initial_training_rate = max_lr + slope_counter*(base_lr-max_lr)/stepsize
+                    params.initial_training_rate = max_lr + slope_counter * (base_lr - max_lr) / stepsize
                 slope_counter += 1
+
+            if params.learning_rate_warmup == "True":
+                # overwrite initial learning rate while warmup
+                if epoch < params.t0/2:
+                    params.initial_training_rate = learning_rate_start/(params.t0/2)*(epoch+1)
 
             num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
 
