@@ -74,16 +74,18 @@ def input_fn(data_dir, mode, params):
     if "MNIST" in filename:  # Mnist and Fashion Mnist
         params.channels = 1
         params.num_classes = 10
-    elif "CIFAR-10" or "IMAGENET" in filename:
-        params.channels = 3
+    elif "CIFAR-10" in filename:
         if "CIFAR-100" in filename:
             params.num_classes = 20
-        elif "IMAGENET-10" in filename:
+        else:  # CIFAR-10 case
+            params.num_classes = 10
+    elif "IMAGENET" in filename:
+        if "IMAGENET-10" in filename:
             params.num_classes = 10
         elif "IMAGENET-Dog" in filename:
             params.num_classes = 15
-        else:  # CIFAR-10 case
-            params.num_classes = 10
+        else:  # Imagenet full Case
+            params.num_classes = 1000
 
     # Do pipelining explicitly on CPU
     with tf.device("/cpu:*"):
