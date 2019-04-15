@@ -108,30 +108,34 @@ def visualize_embeddings(sess, log_dir, embedded_data, i, writer, params):
 
     # Fit UMAP to latentspace data
     reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', random_state=42)
-    if np.isnan(embedded_data).any():
+    if np.isnan(embedded_data).any() or np.isinf(embedded_data).any():
         np.nan_to_num(embedded_data)
-    reducer.fit(embedded_data)
-    embedding = reducer.transform(embedded_data)
-    # Read Labels from txt
-    labels = np.genfromtxt(fname=metadata, delimiter="\t")
+    try:
+        reducer.fit(embedded_data)
+        embedding = reducer.transform(embedded_data)
+        # Read Labels from txt
+        labels = np.genfromtxt(fname=metadata, delimiter="\t")
 
-    # Create Scatter Plot with UMAP-transformed data
-    f = plt.figure(i)
-    ax = f.add_subplot(111)
-    ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
-    ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i)), fontsize=14)
+        # Create Scatter Plot with UMAP-transformed data
+        f = plt.figure(i)
+        ax = f.add_subplot(111)
+        sc = ax.scatter(embedding[:, 0], embedding[:, 1], c=labels, cmap='Spectral', s=5)
+        ax.set_title(('UMAP projection of latentspace after Epoch %i' % (i)), fontsize=14)
+        ax.figure.colorbar(sc, ax=ax, boundaries=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        # Create a Buffer and write PNG Image to it
+        reliability_image = io.BytesIO()
+        plt.savefig(reliability_image)
 
-    # Create a Buffer and write PNG Image to it
-    reliability_image = io.BytesIO()
-    plt.savefig(reliability_image)
+        # Write Image to Tensorboard
+        reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
+        summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
+        writer.add_summary(summary)
 
-    # Write Image to Tensorboard
-    reliability_image = tf.Summary.Image(encoded_image_string=reliability_image.getvalue(), height=7, width=7)
-    summary = tf.Summary(value=[tf.Summary.Value(tag="UMAP", image=reliability_image)])
-    writer.add_summary(summary)
-
-    # Close figure
-    plt.close(f)
+        # Close figure
+        plt.close(f)
+    except ValueError:
+        print("Exception at UMAP Visualization occured")
+        pass
 
     # Saves a config file that TensorBoard will read during startup.
     projector.visualize_embeddings(writer, config)
