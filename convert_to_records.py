@@ -92,10 +92,10 @@ def convert_pickle_to_tfrecord(input_files, output_file):
     print('Generating %s' % output_file)
     with tf.python_io.TFRecordWriter(output_file) as writer:
         # draw 10 random number for getting 10 random classes from Imagenet (fixed value for reproducibility)
-        #class_id = [145, 153, 289, 404, 405, 510, 805, 817, 867, 950]  # random.sample(range(0, 999), 10)
-        class_id = [153, 156, 161, 174, 197, 207, 215, 216, 218, 224, 227, 230, 236, 254, 260]  # 15 dog classes (also used in DAC)
+        # class_id = [145, 153, 289, 404, 405, 510, 805, 817, 867, 950]  # random.sample(range(0, 999), 10)
+        # class_id = [153, 156, 161, 174, 197, 207, 215, 216, 218, 224, 227, 230, 236, 254, 260]  # 15 dog classes (also used in DAC)
 
-        count = np.zeros(shape=len(class_id))
+        # count = np.zeros(shape=len(class_id))
         for input_file in input_files:
             data_dict = read_pickle_from_file(input_file)
             data = data_dict['data']
@@ -105,25 +105,25 @@ def convert_pickle_to_tfrecord(input_files, output_file):
             labels = [i - 1 for i in labels]
 
             num_entries_in_batch = len(labels)
-
+            print('Converting %s' % input_file)
             for i in range(num_entries_in_batch):
-                if labels[i] in class_id:
-                    labels[i] = class_id.index(labels[i])  # put the labels into the range of 0 to no. clusters
-                    example = tf.train.Example(
-                        features=tf.train.Features(
-                            feature={
-                                'height':   _int64_feature(64),
-                                'width':    _int64_feature(64),
-                                'depth':    _int64_feature(3),
-                                'image':    _bytes_feature(data[i].tobytes()),
-                                'mean_img': _bytes_feature(mean_img.tobytes()),
-                                'label':    _int64_feature(labels[i])
-                            }))
-                    writer.write(example.SerializeToString())
-                    count[labels[i]] += 1  # count number of samples per class
-        for idx, num in enumerate(count):
-            print('Number of samples of class %d: %d' % (idx, num))
-        print('Total Number of samples %d' % np.sum(count))
+                # if labels[i] in class_id:
+                    # labels[i] = class_id.index(labels[i])  # put the labels into the range of 0 to no. clusters
+                example = tf.train.Example(
+                    features=tf.train.Features(
+                        feature={
+                            'height':   _int64_feature(64),
+                            'width':    _int64_feature(64),
+                            'depth':    _int64_feature(3),
+                            'image':    _bytes_feature(data[i].tobytes()),
+                            'mean_img': _bytes_feature(mean_img.tobytes()),
+                            'label':    _int64_feature(labels[i])
+                        }))
+                writer.write(example.SerializeToString())
+                # count[labels[i]] += 1  # count number of samples per class
+        # for idx, num in enumerate(count):
+        #     print('Number of samples of class %d: %d' % (idx, num))
+        # print('Total Number of samples %d' % np.sum(count))
 
 
 if __name__ == '__main__':
@@ -131,8 +131,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default="imagenet",
                         help="Dataset which should be converted")
-    data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Code/Data'
-    # data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
+    data_dir = 'C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Data'
+    #data_dir = os.path.join(os.path.expanduser('~'), 'no_backup', 's1279', 'MNIST_data')
     parser.add_argument('--data_dir', default=data_dir,
                         help="Directory containing the dataset")
 
