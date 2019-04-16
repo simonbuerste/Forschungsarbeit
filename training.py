@@ -10,7 +10,6 @@ from evaluation import evaluate_sess
 from utils import save_dict_to_json
 from utils import visualize_embeddings
 from utils import Params
-from utils import learning_rate_schedules
 
 
 def train_sess(sess, model_spec, num_steps, writer, params):

@@ -4,18 +4,20 @@ import json
 from shutil import copyfile
 
 
-latent_model = ["AE", "VAE"] # "AE", "VAE", "g_VAE", "b_AE"
+latent_model = ["AE"] # "AE", "VAE", "g_VAE", "b_AE"
 datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #"MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-10", "IMAGENET-Dog"] #
 
-n_latent = 10#[5, 10, 20, 32, 64, 128, 256]
-train_batch_size = 64 # [64, 128, 256, 512, 1024]
-initial_learning_rate = [0.001, 0.01] # [0.001, 0.01, 0.1]
-#lambda_r  = 10#[1, 0.1, 0.01, 0.001]
-#alpha = [0, 0.5, 1]
-#temperature_gumbel = [10, 5, 1, 0.5]
+n_latent = 10  #[5, 10, 20, 32, 64, 128, 256]
+train_batch_size = 64  # [64, 128, 256, 512, 1024]
+eval_batch_size = 500  # [64, 500, 1024, 2048]
+initial_learning_rate = 0.1 # [0.001, 0.01, 0.1]
+lambda_r = 1  # [1, 0.1, 0.01, 0.001]
+alpha = 0.5  # [0, 0.5, 1]
+temperature_gumbel = 10  # [10, 5, 1, 0.5]
+no_cluster = [5, 10, 15, 20, 50]
 
 # set to "" if constant is desired
-learning_rate_schedules = ["exponential_decay", "triangular"]  # "step_decay", "exponential_decay", "triangular"
+learning_rate_schedules = ""  # "["", "step_decay", "exponential_decay", "triangular"]
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -82,35 +84,37 @@ for model in latent_model:
             json.dump(params, paramsFile)
 
         #for n in train_batch_size:
-        for k in learning_rate_schedules:
-            for n in initial_learning_rate:
-                # first read the params and overwrite the specific parameter
-                with open(tmp_filename, "r") as paramsFile:
-                    params = json.load(paramsFile)
+        for k in no_cluster:
+            # first read the params and overwrite the specific parameter
+            with open(tmp_filename, "r") as paramsFile:
+                params = json.load(paramsFile)
 
-                # part for changing the parameters as desired
-                params["train_batch_size"] = train_batch_size
-                params["learning_rate_schedule"] = k
-                params["initial_training_rate"] = n
-                params["n_latent"] = n_latent
-                params["visualize"] = 1
+            # part for changing the parameters as desired
+            params["train_batch_size"] = train_batch_size
+            params["eval_batch_size"] = eval_batch_size
+            params["learning_rate_schedule"] = learning_rate_schedules
+            params["initial_training_rate"] = initial_learning_rate
+            params["n_latent"] = n_latent
+            params["visualize"] = 1
+            params["learning_rate_warmup"] = False
+            params["k"] = k
 
-                # Gumbel VAE
-                #params["temperature_gumbel"] = k
+            # Gumbel VAE
+            params["temperature_gumbel"] = temperature_gumbel
 
-                # Discriminative AE
-                #params["lambda_d"] = 1.0
-                #params["lambda_r"] = lambda_r
-                #params["alpha"] = k
+            # Discriminative AE
+            params["lambda_d"] = 1.0
+            params["lambda_r"] = lambda_r
+            params["alpha"] = alpha
 
-                # write the new parameters to the parameter file
-                with open(tmp_filename, "w") as paramsFile:
-                    json.dump(params, paramsFile)
+            # write the new parameters to the parameter file
+            with open(tmp_filename, "w") as paramsFile:
+                json.dump(params, paramsFile)
 
-                # execute the Training for all Datasets
-                for i in range(no_repetitions):
-                    os.system('python3.6 Train.py --dataset=%s --gpu=1 --latent_model=%s --cluster_model=kmeans --Parameters=%s'% (dataset, model, tmp_filename))
-                    time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
+            # execute the Training for all Datasets
+            for i in range(no_repetitions):
+                os.system('python3.6 Train.py --dataset=%s --gpu=1 --latent_model=%s --cluster_model=kmeans --Parameters=%s'% (dataset, model, tmp_filename))
+                time.sleep(70)  # 70 seconds pause to ensure models are not written in same folder
 
     # remove the copied version of params file,
     # since the model specific parameters are saved at model direction
