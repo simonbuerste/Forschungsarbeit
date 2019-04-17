@@ -1035,14 +1035,105 @@ These experiments are executed only for the AE model due to time restrictions. C
 	\end{figure}
 The figures illustrate, that learning rate schedules can improve the clustering performance further, but it's not generally the case. As shown in figure \ref{fig:MNIST_NMI_AE_init_lr_schedule} and \ref{fig:Imagenet-Dog_NMI_AE_init_lr_schedule}, it can not be said that one combination is optimal, since it varies depending on the dataset. Also the additional performance, which can be gained, is quite small. Nevertheless the clustering performance can be improved slightly with this methods.
 \paragraph{Linear Learning Rate Warmup}
-In this chapter, the learning rate is further adapted by using a linear warmup. The linear warmup takes in the first $10$ epochs, as described earlier in this work. The initial learning rate $\gamma_0$ is fixed to $0.1$, and the linear warmup is performed on all schedules, inclusive the constant learning rate on all datasets. This investigation is done for the AE model.
+In this chapter, the learning rate is further adapted by using a linear warmup. The linear warmup takes in the first $10$ epochs, as described earlier in this work. The initial learning rate $\gamma_0$ is fixed to $0.1$, and the linear warmup is performed on all schedules, inclusive the constant learning rate on all datasets. This investigation is done for the AE model. The results of the overall $8$ combinations ($4$ schedules with and without warmup) are shown in figure \ref{fig:ClusterPerformance_AE_lr_schedule_warmup} based on MNIST (figure \ref{fig:MNIST_NMI_AE_lr_schedule_warmup}) and Imagenet-10 (figure \ref{fig:Imagenet-10_NMI_AE_lr_schedule_warmup}) with \textit{true} for learning\_rate\_warmup indicating that the linear warmup was used and vice versa for \textit{false}.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_AE_lr_schedule_warmup}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_AE_NMI_learning_rate_warmup_learning_rate_schedule}}}
+		\qquad
+		\subfloat[NMI Imagenet-10\label{fig:Imagenet-10_NMI_AE_lr_schedule_warmup}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-10_AE_NMI_learning_rate_warmup_learning_rate_schedule}}}
+		\caption{Clustering Performance (NMI) for AE + kmeans on different $\gamma_0$ and learning rate schedules for MNIST and Imagenet-Dog}
+		\label{fig:ClusterPerformance_AE_lr_schedule_warmup}
+	\end{figure}
+These figures show exemplary that a warmup of the learning rate does not generally improve the clustering performance. In some combinations, i.e. for Imagenet-10 with step decay scheduling, the performance can be slightly improved, but in the most cases the performance can not improved by a warmup and is slightly worse. Based on these results, the warmup will not be used for further experiments in this work. 
 \section{Clustering Robustness}
 In this section, the robustness of the clustering algorithm kmeans is further investigated. Due to time limitations, these investigations are only done for the kmeans algorithm, but could also be extended to other clustering algorithms.\\
-As already described in the \textit{model-related hyperparameters}, the number of clusters clearly influences the clustering. The expectation is, that having an increasing number of clusters leads to a better clustering performance, since critical or hard samples in one class can be split into different clusters while increasing the purity (cluster accuracy). Therefore the number of cluster $k$ as input for the kmeans algorithm is varied at the values $[5, 10, 15, 20, 50]$. This is done based on an AE with a constant learning rate $\gamma_0=0.1$ and a training batch size of the model $B_{train}=64$. All other hyperparameters are fixed to the previous in this work defined values.
-
-In addition, the impact of the batch size for the minibatch kmeans algorithm, used in this work, is investigated. Therefore the batch size for the clustering task, $B_{clustering}$ is varied with the values $[64, 500, 1024, 2048]$. Due to memory limitation, a higher batch size is not feasible. The value of $500$ can be seen as reference, since this value is used previously in this work.
+As already described in the \textit{model-related hyperparameters}, the number of clusters clearly influences the clustering. The expectation is, that having an increasing number of clusters leads to a better clustering performance, since critical or hard samples in one class can be split into different clusters while increasing the purity (cluster accuracy). Therefore the number of cluster $k$ as input for the kmeans algorithm is varied at the values $[5, 10, 15, 20, 50]$. This is done based on an AE with a constant learning rate $\gamma_0=0.1$ and a training batch size of the model $B_{train}=64$. All other hyperparameters are fixed to the previous, in this work defined values. The results, and thus the impact of the choice of cluster numbers $k$ on the clustering accuracy is visualized in figure \ref{fig:ClusterPerformance_kmeans_no_clusters}.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[ACC MNIST\label{fig:MNIST_ACC_kmeans_no_clusters}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_Accuracy_AE_k}}}
+		\qquad
+		\subfloat[ACC F-MNIST\label{fig:F-MNIST_ACC_kmeans_no_clusters}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/F-MNIST_Accuracy_AE_k}}}
+		\qquad
+		\subfloat[ACC Imagenet-Dog\label{fig:Imagenet-Dog_ACC_kmeans_no_clusters}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-Dog_Accuracy_AE_k}}}
+		\caption{Clustering Performance (ACC) for AE + kmeans on different number of clusters $k$ for MNIST, F-MNIST and Imagenet-Dog}
+		\label{fig:ClusterPerformance_kmeans_no_clusters}
+	\end{figure}
+The curves at F-MNIST (figure \ref{fig:F-MNIST_ACC_kmeans_no_clusters}) and Imagenet-Dog (figure \ref{fig:Imagenet-Dog_ACC_kmeans_no_clusters}) show the expected shape, with achieving higher accuracies with more number of clusters, as discussed beforehand. The curve at the MNIST dataset (figure \ref{fig:MNIST_ACC_kmeans_no_clusters}) shows a different behaviour. The curve achieved already a maximum with the number of clusters equals the original class number. One reason for that could be that the dataset can partioned well into $k=10$ different clusters which represent the original class numbers. By further dividing the clusters into more subclusters, the purity of the single clusters does not increase. This can be further proved by taking a look on the latent space of the AE at MNIST after 50 training epochs with the help of the UMAP transformation of the $10$-dimensional latent space into $2$-d. This is visualized by figure \ref{fig:UMAP_2d_transform_MNIST_F-MNIST_AE}.
+	 \begin{figure}[htb!]
+		\centering	
+		\subfloat[MNIST\label{fig:UMAP_2d_transform_MNIST_AE}]{%
+		{\includegraphics[width=0.45\linewidth]{Graphiken/UMAP_LatentSpace_AE_50epochs}}}
+		\qquad
+		\subfloat[F-MNIST\label{fig:UMAP_2d_transform_F-MNIST_AE}]{%
+		{\includegraphics[width=0.45\linewidth]{Graphiken/UMAP_LatentSpace_AE_F-MNIST_50epochs}}}
+		\caption{UMAP-transformed latent space of the AE after 50 epochs at MNIST and F-MNIST}
+		\label{fig:UMAP_2d_transform_MNIST_F-MNIST_AE}
+	\end{figure}
+The figure shows, that the original classes can be seperated quite well by the latent representation of the AE at MNIST (figure \ref{fig:UMAP_2d_transform_MNIST_AE}). Further dividing the clusters into smaller clusters does not bring a benefit. When looking at the latent representations of the F-MNIST dataset (figure \ref{fig:UMAP_2d_transform_F-MNIST_AE}), it can be assumed, that further dividing clusters into smaller subclusters by increasing the number of cluster will increase the cluster accuracy. Additionally the impact of changing the number of clusters on the NMI is checked and visualized in figure \ref{fig:ClusterPerformance_NMI_kmeans_no_clusters}.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[ACC MNIST\label{fig:MNIST_NMI_kmeans_no_clusters}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_NMI_AE_k}}}
+		\qquad
+		\subfloat[ACC F-MNIST\label{fig:F-MNIST_NMI_kmeans_no_clusters}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/F-MNIST_NMI_AE_k}}}
+		\qquad
+		\subfloat[ACC Imagenet-Dog\label{fig:Imagenet-Dog_NMI_kmeans_no_clusters}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-Dog_NMI_AE_k}}}
+		\caption{Clustering Performance (NMI) for AE + kmeans on different number of clusters $k$ for MNIST, F-MNIST and Imagenet-Dog}
+		\label{fig:ClusterPerformance_NMI_kmeans_no_clusters}
+	\end{figure}
+The deviation of the NMI metric can not be described. In general, the better the distribution of the samples in the different clusters models the true distribution, the higher the value is. For MNIST (figure \ref{fig:MNIST_NMI_kmeans_no_clusters}) this optimum is obtained with a cluster number $k=10$, while for F-MNIST (\ref{fig:F-MNIST_NMI_kmeans_no_clusters}) the highest NMI value is reached at $k=15$. For Imagenet-Dog, the NMI value follows the behaviour of the clustering accuracy, increasing its value for higher number of clusters within the investigated range.\\
+In addition, the impact of the batch size for the minibatch kmeans algorithm, which used in this work, is investigated. Therefore the batch size for the clustering task, $B_{clustering}$ is varied with the values $[64, 500, 1024, 2048]$. Due to memory limitation, a higher batch size is not feasible. So a classical kmeans algorithm based on all data is not possible for every dataset (i.e. MNIST with 10000 test samples). The expectation is that with higher batch sizes the performance should become more stable, since the kmeans training steps become more stable. With small batch sizes there is the risk, that the drawn samples in the batch does not represent the true distribution, so the cluster updates becomes biased towards the majority clusters. The value of $500$ can be seen as reference, since this value is used so far in this work. The number of clusters is fixed to the number of original classes in the dataset, other parameters stay the same. The resulting NMI values for the different batch sizes is shown in figure \ref{fig:ClusterPerformance_NMI_kmeans_eval_batch_size}.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_kmeans_eval_batch_size}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_NMI_AE_eval_batch_size}}}
+		\qquad
+		\subfloat[NMI F-MNIST\label{fig:CIFAR-10_NMI_kmeans_eval_batch_size}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/CIFAR-10_NMI_AE_eval_batch_size}}}
+		\caption{Clustering Performance (NMI) for AE + kmeans on different cluster (eval) batch size for MNIST and CIFAR-10}
+		\label{fig:ClusterPerformance_NMI_kmeans_eval_batch_size}
+	\end{figure}
+The expectation about the impact of the batch size on kmeans clustering is fulfilled. With a higher batch size of the kmeans minibatch algorithm, better performance can be obtained. This holds up to a certain value, where the minibatch kmeans algorithm reaches a stable level of performance, with regard to small fluctuation still remaining since it remains a batched, and with that a noisy, version of the original kmeans algorithm. An additional remark is that for the Imagenet-10 and Imagenet-Dog datasets no minibatch version of kmeans has to be used due to its small test datasets with $500$ and $750$ test samples, respectively.
 \section{Final Results}
-In this section, the final results will be generated. Therefore the obtained optimal hyperparameters are used to train the models.
+In this section, final results will be generated. Therefore the beforehand evaluated optimal hyperparameters per dataset and model are used to train the models with repetitions to generate also an estimate about the reproducibility of the results. First, the investigated hyperparameters will be introduced. These are used for the generation of the results per model and dataset. The hyperparameters are given in table \ref{tab:Hyperparametersettings_AE_b_AE}.
+	\begin{table}[htb!]
+    		\caption{Hyperparameter settings for different dataset for the AE/discriminative AE and VAE}
+    		\label{tab:Hyperparametersettings_AE_b_AE}
+    		\begin{tabular}{l|ccccc}
+    			\toprule
+        		Dataset $\backslash$ Hyperparameter & \multicolumn{2}{c}{$n_{latent}$} & \multicolumn{2}{c}{$B_{train}$} & $B_{cluster}$\\
+        		& AE & VAE & AE & VAE & AE \& VAE\\
+        		\midrule
+        		MNIST & $10$ & $10$ & $64$ & $128$ & $1024$\\
+        		F-MNIST & $10$ & $10$ & $64$ & $128$ & $2048$\\
+        		CIFAR-10 & $20$ & $10$ & $64$ & $128$ & $2048$\\
+        		CIFAR-100 & $32$ & $32$ & $64$ & $128$ & $2048$\\
+        		Imagenet-10 & $128$ & $256$ & $64$ & $128$ & $500$\\
+        		Imagenet-Dog & $256$ & $128$ & $64$ & $128$ & $500$\\
+        		\bottomrule
+    		\end{tabular}
+    		\begin{tabular}{l|cccc}
+    			\toprule
+        		Dataset $\backslash$ Hyperparameter & \multicolumn{2}{c}{Learning Rate Schedule} & \multicolumn{2}{c}{$\gamma_0$}\\
+        		& AE & VAE & AE & VAE\\
+        		\midrule
+        		MNIST & step decay & triangular & $0.1$ & $0.001$\\
+        		F-MNIST & constant & triangular & $0.01$ & $0.01$\\
+        		CIFAR-10 & triangular & triangular & $0.01$ & $0.01$\\
+        		CIFAR-100 & triangular & triangular & $0.1$ & $0.01$\\
+        		Imagenet-10 & exponential decay & triangular & $0.001$ & $0.001$\\
+        		Imagenet-Dog & exponential decay & triangular & $0.01$ & $0.01$\\
+        		\bottomrule
+    		\end{tabular}
+	\end{table}
+Due to time restrictions, no separate hyperparameter tuning for the discriminative AE was possible. But based on the previous seen results it seems that the optimized hyperparameters for the AE also improve the clustering performance of the discriminative AE. Due to this, the discriminative AE will use the same hyperparameters as the AE, except for the training batch size $B_{train}$, which is set to $1000$ as already discussed. The Gumbel VAE show worse results with the obtained hyperparameters from the VAE. Due to this observation and time and computational restrictions, no further experiments with the Gumbel VAE were done. The later mentioned values are based on perviously achieved results with the Gumbel VAE.
 \chapter{Summary and Outlook}
 
 
