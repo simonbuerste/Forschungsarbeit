@@ -28,7 +28,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
 
     # Load the evaluation dataset into the pipeline and initialize the metrics init op
     sess.run(model_spec['iterator_init_op'])
-    
+
     # Initialize the cluster centers for each epoch (Cluster Variables have to be initialized ("reset") again therefore)
     sess.run(model_spec['reset_op'])
     while not sess.run(model_spec['cluster_center_initialized']):
@@ -43,10 +43,6 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
             sess.run(model_spec['train_op'], feed_dict={model_spec['sigma_placeholder']: params.sigma})
         sess.run(model_spec['iterator_init_op'])
 
-    accuracy = 0
-    nmi = 0
-    ari = 0
-    
     # compute metrics over the dataset
     ypred = np.array([])
     labels = np.array([])
@@ -59,7 +55,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
                                                model_spec['lambda_d_placeholder']: params.lambda_d,
                                                model_spec['lambda_b_placeholder']: params.lambda_b,
                                                model_spec['lambda_w_placeholder']: params.lambda_w})
-             
+
         ypred = np.append(ypred, idx_batch)
         labels = np.append(labels, labels_batch)
 
@@ -74,7 +70,7 @@ def evaluate_sess(sess, model_spec, num_steps, writer=None, params=None, epoch=N
         else:
             embedded_data = []
             embedded_labels = []
-            
+
     ypred = ypred.astype(int)
     labels = labels.astype(int)
     # Evaluate
@@ -148,17 +144,17 @@ def evaluate(model_spec, model_dir, params, restore_from, config, saver):
 
         num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
-        best_test_acc = 0.0
+        best_test_nmi = 0.0
         for epoch in range(params.num_epochs):
             metrics, _, _ = evaluate_sess(sess, model_spec, num_steps, cluster_writer, params, epoch)
 
             # If best_eval, best_save_path
-            test_acc = metrics['Accuracy']
-            if test_acc >= best_test_acc:
+            test_nmi = metrics['Normalized Mutual Information']
+            if test_nmi >= best_test_nmi:
                 # Store new best accuracy
-                best_test_acc = test_acc
+                best_test_acc = test_nmi
                 metrics_name = '_'.join(restore_from.split('/'))
-                save_path = os.path.join(model_dir, "metrics_test_{}.json".format(metrics_name))
+                save_path = os.path.join(model_dir, "metrics_test.json")
                 save_dict_to_json(metrics, save_path)
 
-            print("Test_acc after Epoch ", epoch+1, ":", test_acc)
+            print("Test_acc after Epoch ", epoch+1, ":", metrics['Accuracy'])

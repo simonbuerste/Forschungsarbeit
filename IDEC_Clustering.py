@@ -53,7 +53,7 @@ def train_and_evaluate_idec(train_model_spec, model_dir, params, config, restore
         best_eval_nmi = 0.0
 
         # Compute number of batches in one epoch (one full pass over the training set)
-        num_steps = (params.train_size + params.train_batch_size - 1) // params.train_batch_size
+        num_steps = (params.eval_size + params.eval_batch_size - 1) // params.eval_batch_size
 
         # Initialization of centers by running kmeans
         cluster_centers = train_model_spec['cluster_centers']
