@@ -90,5 +90,11 @@ def idec_model_fn(inputs, latent_model_spec, params, reuse=False):
     model_spec['prob'] = q
     model_spec['target_prob'] = p
     model_spec['gamma_placeholder'] = gamma
+    model_spec['sigma_placeholder'] = tf.placeholder(tf.float32, shape=[], name='Sigma_placeholder')
+    model_spec['lambda_r_placeholder'] = tf.placeholder(tf.float32, shape=[], name='Reconstruction_regularization')
+    model_spec['lambda_c_placeholder'] = tf.placeholder(tf.float32, shape=[], name='center_sim_regularization')
+    model_spec['lambda_d_placeholder'] = tf.placeholder(tf.float32, shape=[], name='discriminative_regularization')
+    model_spec['lambda_b_placeholder'] = tf.placeholder(tf.float32, shape=[], name='inter_cluster_sim_regularization')
+    model_spec['lambda_w_placeholder'] = tf.placeholder(tf.float32, shape=[], name='intra_cluster_sim_regularization')
 
     return model_spec
