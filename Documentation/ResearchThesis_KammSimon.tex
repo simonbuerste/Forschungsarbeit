@@ -48,7 +48,7 @@
 % -----------------------------------------------------------------
 
 
-\documentclass[12pt,DIV14,BCOR12mm,a4paper,footexclude,headinclude,halfparskip-,twoside,openright,openany,cleardoubleempty,idxtotoc,bibtotoc]{scrreprt} % Koma-Script
+\documentclass[12pt,DIV14,BCOR12mm,a4paper,footexclude,headinclude,halfparskip-,twoside,openright,cleardoubleempty,idxtotoc,bibtotoc,listtotoc]{scrreprt} % Koma-Script
 %
 %
 %
@@ -446,7 +446,7 @@ The algorithm is summarized in the following \cite{LectureNotes_DPR}:
 		\end{itemize}
 	\item[Until] no change in clusters $S_{i}$ or $i \geq max\_iter$
 \end{description}
-It is obvious, that the convergence time of the algorithm is sensitive to the choice of the initial cluster centers. An naive (and fast) approach is to randomly choose samples out of $S$ to initialize the cluster centers. Nevertheless, there are more improved initialization schemes available (\cite{Yi10ImprovedInitialization}, \cite{Arthuer07kmeans_plusplus}).
+It is obvious, that the convergence time of the algorithm is sensitive to the choice of the initial cluster centers. An naive (and fast) approach is to randomly choose samples out of $S$ to initialize the cluster centers. Nevertheless, there are more improved initialization schemes available (\cite{Yi10ImprovedInitialization}, \cite{Arthuer07kmeans_plusplus}). In this work the Tensorflow built-in minibatch algorithm of Kmeans is used, due to limited memory and the sizes of the datasets.
 \subsubsection{Gaussian Mixture Model}
 Gaussian Mixture Models (GMMs) can be used for clustering. It is a probabilistic approach. Each cluster will be described by its estimated centroids (or mean) $\hat{\underline{\mu}}_m$, estimated covariance matrix $\hat{\mathbf{C}}_m$ and the mixture weights $\hat{\alpha}_m$ with $\sum_{m=1}^{M}\hat{\alpha}_m=1$, which can be interpreted as estimated (relative) size of the clusters. Instead of identifying cluster assignments by determine the "nearest" (or most similar) cluster (as in k-means), we fit a set of $M$ Gaussian distributions to the data. The number of applied gaussians $M$ is also called the model order. The above introduced parameters of the distributions are learned by the EM-algorithm \cite{Dempster-et-al-1977}. After learning this parameters, we can calculate the probabilities of each sample and perform an assignment based on these probability values. The probability density function $p_m$ follows a normal distribution as in equation \ref{eq:GMM_distribution} \cite{Bishop}.
 \begin{align}
@@ -777,7 +777,7 @@ The training of a deep neural network can be optimized and adapted on a wide ran
 	Based on the samples inside a batch, the (noisy) gradient is calculated for further optimization of the network. Therefore it is clear, that the batch size directly influences the learning procedure of a deep neural network. Following \cite{Goodfellow-et-al-2016}, the minibatch sizes are driven by  different factors, i.e. that larger batches provides a more accurate estimate of the gradient, but with less than linear returns. It is also mentioned there, that small batches can offer a regularization effect, which often lead to a better generalization error with decreasing batch size. The reason for this can be the introduced noise through small batch sizes. Also it should be mentioned, that the batch size directly influence the memory consumption, so in general it is desired to use small batch sizes for faster computation and less memory consumption. In this work we compare batch sizes in the range from 64 to 1024, more precisely the following values are investigated: $[64, 128, 256, 512, 1024]$.\\ As the batch size directly influence the gradient calculation, and thus the optimization step, these values are jointly optimized with different learning rates, since a more noisy gradient perhaps needs a smaller step size for convergence \cite{Goodfellow-et-al-2016}.
 	\item[Constant Learning Rate]\hfill \\
 	As mentioned before and introduced in the beginning of the work, the optimization step depends on the learning rate $\gamma$, often also called step size. Different ways to vary the learning rate are used. Here the constant learning rates are varied. In a separate part different learning rate schedules are proposed. We investigated the fixed learning rates jointly with the above defined batch sizes. The investigated learning rates $\gamma$ are $[0.001, 0.01, 0.1]$.
-	\item[Static Learning Rate Schedule]\hfill \\
+	\item[Learning Rate Schedule]\hfill \\
 	What can be a remaining challenge when having a constant learning rate, is a possible slow convergence with a small learning rate or an oscillation around a local minima with too large learning rates. Therefore a compromise between a fast convergence at the beginning (high learning rate) and an accurate update around the local minima (low learning rate) is desired. To combine both points, learning rate schedules are used, where the learning rate $\gamma$ decays over the number of epochs following a specific schedule. Different schedules are used an their effect on clustering is investigated. The different schedules will be introduced in the following.
 	\begin{description}
 		\item[Step decay]: Step decay steps down the learning rate, as it name says. After a defined time interval $t_0$, the learning rate steps down to $c\cdot\gamma_0$ with the decay factor $c$ and the initial learning rate $\gamma_0$. Then the time interval starts again and the next decay, leading to the learning rate $c^2\cdot\gamma_o$ takes place at $2t_0$ \cite{LectureNotes_DeepLearning}. The values for the time interval $t_0$, initial learning rate $\gamma_0$ and the decay factor $c$ will be defined based on the results which will be obtained by previous defined results.
@@ -930,8 +930,8 @@ The figures shows the latent representation for the different temperature values
 	\label{fig:Different_GumbelTemperatures_UMAP}
 \end{figure}
 Figure \ref{fig:Different_GumbelTemperatures_UMAP} shows the intention of using discretized latent representations for clustering. The samples from figure \ref{fig:UMAP_z_tau_1} seems to represent already different clusters, while in figure \ref{fig:UMAP_z_tau_10} the samples are distributed continuously in the latent space. A possible useful adoption of the Gumbel VAE could contain deliver additional information to the encoder, that similar images should have the same discrete latent representation. Due to time restrictions in this work, no further adoptions and improvements on the architecture of the Gumbel VAE could be done.\\
-Up to now, the model-related hyperparameters are optimized. In table \ref{tab:ClusterPerformance_Models_ModelrelatedParams} the performances of the different models are summarized with the above mentioned chosen hyperparameters. The best model per dataset is marked in \textbf{bold}. This will be seen as base for further optimization of the clustering performance by adapting the training-related hyperparamters.
-		\begin{table}[htb!]
+Up to now, the model-related hyperparameters are optimized. In table \ref{tab:ClusterPerformance_Models_ModelrelatedParams} the performances of the different models are summarized with the above mentioned chosen hyperparameters. The best model per dataset and metric is marked in \textbf{bold}. This will be seen as base for further optimization of the clustering performance by adapting the training-related hyperparamters.
+	\begin{table}[htb!]
     		\centering
     		\caption{Clustering Performance of models + kmeans on different datasets with chosen hyperparameters}
     		\label{tab:ClusterPerformance_Models_ModelrelatedParams}
@@ -942,7 +942,7 @@ Up to now, the model-related hyperparameters are optimized. In table \ref{tab:Cl
         		\midrule
     			AE & $\mathbf{0.80}$ & $\mathbf{0.74}$ & $\mathbf{0.68}$ & $0.62$ & $\mathbf{0.62}$ & $\mathbf{0.45}$ & $0.25$ & $0.10$ & $0.06$\\
         		discriminative AE & $0.77$ & $0.71$ & $0.63$ & $\mathbf{0.64}$ & $0.61$ & $0.44$ & $0.24$ & $0.09$ & $0.05$\\
-        		VAE & $0.80$ & $0.66$ & $0.62$ & $0.57$ & $0.50$ & $0.38$ & $\mathbf{0.26}$ & $\mathbf{0.12}$ & $\mathbf{0.07}$\\
+        		VAE & $\mathbf{0.80}$ & $0.66$ & $0.62$ & $0.57$ & $0.50$ & $0.38$ & $\mathbf{0.26}$ & $\mathbf{0.12}$ & $\mathbf{0.07}$\\
         		Gumbel VAE & $0.60$ & $0.50$ & $0.39$\\
         		\bottomrule
     		\end{tabular}    		
@@ -958,8 +958,93 @@ Up to now, the model-related hyperparameters are optimized. In table \ref{tab:Cl
         		\bottomrule
     		\end{tabular}
 	\end{table}
+	Shortly, it can be stated, that the classical Autoencoder produces better results for MNIST and F-MNIST, while the VAE enables sligthly better clustering performance on colored images (CIFAR-10, CIFAR-100, Imagenet-10, Imagenet-Dog).
 \section{Training-related Hyperparameters}
+In this section, the above introduced training-related hyperparameters, mainly the learning rate, will be investigated and optimized with respect to the clustering objective of this work. A big impact of the learning rate is expected, since it clearly changes and hopefully improves the training procedure. The model-related hyperparameters are fixed to the above derived values.
+\paragraph{Training Batch Size \& Constant Learning Rata}\hfill \\
+First, the training batch size $B_{train}$ of our latent model is jointly optimized with a constant learning rate $\gamma_0$. We perform a grid search for defined values $B_{train} = [64, 128, 256, 512, 1024]$ and $\gamma_0 = [0.001, 0.01, 0.1]$. The values are spread over a huge range, which perhaps can result in missing the optimal values, but get a good overview for the impact of these hyperparamters to the clustering. These grid search is done on all datasets, to ensure a general argumentation, for the standard AE and VAE. Due to time restrictions, the grid search can't be done on all models, since the grid search with these parameters results already in $90$ trainings per Model. The obtained results will be discussed and visualized in the following.\\
+Figure \ref{fig:ClusterPerformance_AE_LearningRate_BatchSize} shows the impact of the learning rate and batch size in the defined grid for the NMI value. Figure \ref{fig:MNIST_NMI_AE_mu_batchsize} shows the NMI values obtained on the MNIST dataset, while figure \ref{fig:IMAGENET-Dog_NMI_AE_mu_batchsize} shows the obtained results on Imagenet-10.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_AE_mu_batchsize}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_AE_NMI_initial_training_rate_train_batch_size}}}
+		\qquad
+		\subfloat[NMI Imagenet-10\label{fig:IMAGENET-Dog_NMI_AE_mu_batchsize}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-Dog_AE_NMI_initial_training_rate_train_batch_size}}}
+		\caption{Clustering Performance (NMI) for AE + kmeans on different $\gamma_0$ and $B_{train}$ for MNIST and Imagenet-Dog}
+		\label{fig:ClusterPerformance_AE_LearningRate_BatchSize}
+	\end{figure}
+Based on the MNIST dataset, it can be clearly interpreted that smaller batch sizes directly improved the clustering capability of the latent representation of the model. When looking at another dataset, in this case the Imagenet-Dog dataset, it can be seen that this holds not in general. So generally these hyperparameters depend on the dataset in combination with the model, the used loss function and the optimizer. Based on the obtained results, these two hyperparameters for the Autoencoder are further set to $\gamma_0=0.1$ and $B_{train}=64$, since with these settings based on the investigated datasets the best clustering performance is obtained. One explanation for the results could be that with smaller batch sizes, more update steps for a fixed number of epochs is done, so the model is able to better adapt to the task. Additionally a more noisy gradient is obtained by smaller batch sizes, which reduces the risk of stacking at a saddle point. The high learning rate could be explained, that the loss function is clearly showing into on direction, with a higher learning rate allowing to faster "climb down" into direction of the minima.\\
+The obtained results for the VAE are illustrated by figure \ref{fig:ClusterPerformance_VAE_LearningRate_BatchSize} with figure \ref{fig:MNIST_NMI_VAE_mu_batchsize} showing the NMI on MNIST and figure \ref{fig:F-MNIST_NMI_VAE_mu_batchsize} showing the NMI on F-MNIST.
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_VAE_mu_batchsize}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_VAE_NMI_initial_training_rate_train_batch_size}}}
+		\qquad
+		\subfloat[NMI Imagenet-10\label{fig:F-MNIST_NMI_VAE_mu_batchsize}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/F-MNIST_VAE_NMI_initial_training_rate_train_batch_size}}}
+		\caption{Clustering Performance (NMI) for VAE + kmeans on different $\gamma_0$ and $B_{train}$ for MNIST and F-MNIST}
+		\label{fig:ClusterPerformance_VAE_LearningRate_BatchSize}
+	\end{figure}
+At the fields with values of $0.0$, the simulation aborted due to simulation reasons. Due to time restrictions, the simulation was not repeated, but based on simulation results and the trends from different datasets, the missing values can be neglected. Based on the obtained results, the hyperparameters are set for the VAE based models to $\gamma_0=0.01$ and $B_{train}=128$. Based on these results, it can be said, that the VAE based model has worse clustering performance for high learning rates, i.e. $\gamma_0=0.1$. When comparing especially the results on MNIST (figure \ref{fig:MNIST_NMI_VAE_mu_batchsize}) with the obtained results from the AE (figure \ref{fig:MNIST_NMI_AE_mu_batchsize}), the VAE is not that sensitive to the choice of the batch size compared to the AE.\\
+With the obtained results and selected hyperparameters for the AE and VAE based models, the clustering performance of the not explicitly investigated models (discriminative AE and Gumbel VAE) is evaluated. For the discriminative AE, $B_{train}$ stays at $1000$ due to the implicit assumption of the model about uniformly distributed samples over the classes. The learning rate $\gamma_0$ is set to $0.1$. For the Gumbel VAE the observed hyperparameter values of the VAE are used, so $B_{train}=128$ and $\gamma_0=0.01$. The overall results for the different models for the different datasets and metrics is summarized in table \ref{tab:ClusterPerformance_Models_initLR_BatchSize}. The best result per dataset and metric is marked in \textbf{bold}.
+	\begin{table}[htb!]
+    		\centering
+    		\caption{Clustering Performance of models + kmeans on different datasets with adapted $\gamma_0$ and $B_{train}$}
+    		\label{tab:ClusterPerformance_Models_initLR_BatchSize}
+    		\begin{tabular}{l|ccccccccc}
+    			\toprule
+    			\multicolumn{1}{c}{Dataset} & \multicolumn{3}{c}{MNIST} & \multicolumn{3}{c}{F-MNIST} & \multicolumn{3}{c}{CIFAR-10}\\
+        		\multicolumn{1}{c}{Metric} & ACC & NMI & ARI & ACC & NMI & ARI & ACC & NMI & ARI\\
+        		\midrule
+    			AE & $\mathbf{0.89}$ & $\mathbf{0.81}$ & $\mathbf{0.79}$ & $0.65$ & $\mathbf{0.64}$ & $\mathbf{0.47}$ & $\mathbf{0.25}$ & $\mathbf{0.12}$ & $\mathbf{0.06}$\\
+        		discriminative AE & $0.82$ & $0.72$ & $0.64$ & $\mathbf{0.66}$ & $0.61$ & $\mathbf{0.47}$ & $0.19$ & $0.07$ & $0.04$\\
+        		VAE & $0.83$ & $0.69$ & $0.66$ & $0.62$ & $0.57$ & $0.42$ & $\mathbf{0.25}$ & $0.11$ & $\mathbf{0.06}$\\
+        		Gumbel VAE & $0.51$ & $0.43$ & $0.32$ & $0.49$ & $0.50$ & $0.33$ & $0.21$ & $0.07$ & $0.04$\\
+        		\bottomrule
+    		\end{tabular}    		
+    		\begin{tabular}{l|ccccccccc}
+    			\toprule
+    			\multicolumn{1}{c}{Dataset} & \multicolumn{3}{c}{CIFAR-100} & \multicolumn{3}{c}{Imagenet-10} & \multicolumn{3}{c}{Imagenet-Dog}\\
+        		\multicolumn{1}{c}{Metric} & ACC & NMI & ARI & ACC & NMI & ARI & ACC & NMI & ARI\\
+        		\midrule
+    			AE & $\mathbf{0.16}$ & $\mathbf{0.09}$ & $\mathbf{0.04}$ & $0.26$ & $0.14$ & $0.06$ & $\mathbf{0.22}$ & $\mathbf{0.16}$ & $0.04$\\
+        		discriminative AE & $0.11$ & $0.05$ & $0.01$ & $0.25$ & $0.13$ & $0.04$ & $0.17$ & $0.10$ & $0.02$\\
+        		VAE & $\mathbf{0.16}$ & $\mathbf{0.09}$ & $\mathbf{0.04}$ & $\mathbf{0.30}$ & $\mathbf{0.15}$ & $\mathbf{0.07}$ & $\mathbf{0.22}$ & $0.15$ & $\mathbf{0.05}$\\
+        		Gumbel VAE & $0.14$ & $0.08$ & $0.03$ & $0.25$ & $0.12$ & $0.05$ & $0.20$ & $0.14$ & $0.04$\\
+        		\bottomrule
+    		\end{tabular}
+	\end{table}
+The performance, especially on MNIST dataset, improved, i.e. for AE + kmeans now $89\%$ clustering accuracy instead of $80\%$ is achieved. For the other datasets the gain decreases the more complicated the dataset becomes. For CIFAR-100, i.e., the clustering performance does not change at all. Gumbel VAE is the only the model, which shows worse results, i.e. $9\%$ less clustering on MNIST than before. So for the Gumbel VAE a separate hyperparameter optimization should take place, which can not be done inside this work due to time restrictions. Referring to \cite{Chang17DAC}, where a lot of clustering algorithms and models are compared and listed, the implemented and little optimized AE already outperforms a lot of the listed algorithms in terms of clustering performance on some datasets (i.e. MNIST or Imagenet-Dog). Further different learning rate schedules are used for the training of the latent model and their impact on clustering accuracy is investigated.
+\paragraph{Learning Rate Schedule}
+In this paragraph, the effect of different learning rate schedules on the clustering performance is evaluated. Actually it should be performed as done above jointly with the batch size, since the constant learning rate is also a form of a learning rate schedule with no change of the learning rate. Due to limited time, the exhaustive grid search can't be done for all introduced schedules. Therefore we fixed the training batch size $B_{train}$ to the value $64$ and trained the models with the introduced schedules (step decay, exponential decay and triangular schedule) and different initial learning rates $\gamma_0$. For the step size, the $t_0$ is set to $20$ epochs with a decay factor $c=10$. For the exponential decay, $t_0$ is equally set to $20$ epochs. The exponential decay factor $c$ is calculated, that the overall decay is equals to the decay of the step size for comparability. In general, with the number of epochs $n_{epochs}$ and final learning rate $\gamma(N_{epochs})$ $c$ can be calculated by formula \ref{eq:ExponentialDecayFactor}. 
+\begin{align}
+	c=-\dfrac{\textrm{ln}\dfrac{\gamma(n_{epochs})}{\gamma_0}}{(n_{epochs}-t_0)}\label{eq:ExponentialDecayFactor}
+\end{align}
+For the triangular learning rate, the stepsize is set to $t_0/2$, so that the cycle time is equals $t_0$. The initial learning rate $\gamma_0$ is defined as $max\_lr$ and for comparability the $base\_lr$ is set to $max\_lr/100$, so that $base\_lr$ is equals the final learning rate of the step decay and exponential decay. As it can be seen, these new added schedules again introduce new hyperparameters which could be optimized, too.\\
+These experiments are executed only for the AE model due to time restrictions. Clustering is performed with kmeans. All other hyperparameters stay as introduced or mentioned above. Exemplary results for the AE + kmeans are showed in figure \ref{fig:ClusterPerformance_AE_init_lr_schedule} for MNIST (figure \ref{fig:MNIST_NMI_AE_init_lr_schedule}) and Imagenet-Dog (\ref{fig:Imagenet-Dog_NMI_AE_init_lr_schedule}).
+	 \begin{figure}[htb!]
+		\centering
+		\subfloat[NMI MNIST\label{fig:MNIST_NMI_AE_init_lr_schedule}]{%	
+		{\includegraphics[width=0.45\linewidth]{Graphiken/MNIST_AE_NMI_initial_training_rate_learning_rate_schedule}}}
+		\qquad
+		\subfloat[NMI Imagenet-Dog\label{fig:Imagenet-Dog_NMI_AE_init_lr_schedule}]{%			
+		{\includegraphics[width=0.45\linewidth]{Graphiken/IMAGENET-Dog_AE_NMI_initial_training_rate_learning_rate_schedule}}}
+		\caption{Clustering Performance (NMI) for AE + kmeans on different $\gamma_0$ and learning rate schedules for MNIST and Imagenet-Dog}
+		\label{fig:ClusterPerformance_AE_init_lr_schedule}
+	\end{figure}
+The figures illustrate, that learning rate schedules can improve the clustering performance further, but it's not generally the case. As shown in figure \ref{fig:MNIST_NMI_AE_init_lr_schedule} and \ref{fig:Imagenet-Dog_NMI_AE_init_lr_schedule}, it can not be said that one combination is optimal, since it varies depending on the dataset. Also the additional performance, which can be gained, is quite small. Nevertheless the clustering performance can be improved slightly with this methods.
+\paragraph{Linear Learning Rate Warmup}
+In this chapter, the learning rate is further adapted by using a linear warmup. The linear warmup takes in the first $10$ epochs, as described earlier in this work. The initial learning rate $\gamma_0$ is fixed to $0.1$, and the linear warmup is performed on all schedules, inclusive the constant learning rate on all datasets. This investigation is done for the AE model.
+\section{Clustering Robustness}
+In this section, the robustness of the clustering algorithm kmeans is further investigated. Due to time limitations, these investigations are only done for the kmeans algorithm, but could also be extended to other clustering algorithms.\\
+As already described in the \textit{model-related hyperparameters}, the number of clusters clearly influences the clustering. The expectation is, that having an increasing number of clusters leads to a better clustering performance, since critical or hard samples in one class can be split into different clusters while increasing the purity (cluster accuracy). Therefore the number of cluster $k$ as input for the kmeans algorithm is varied at the values $[5, 10, 15, 20, 50]$. This is done based on an AE with a constant learning rate $\gamma_0=0.1$ and a training batch size of the model $B_{train}=64$. All other hyperparameters are fixed to the previous in this work defined values.
+
+In addition, the impact of the batch size for the minibatch kmeans algorithm, used in this work, is investigated. Therefore the batch size for the clustering task, $B_{clustering}$ is varied with the values $[64, 500, 1024, 2048]$. Due to memory limitation, a higher batch size is not feasible. The value of $500$ can be seen as reference, since this value is used previously in this work.
+\section{Final Results}
+In this section, the final results will be generated. Therefore the obtained optimal hyperparameters are used to train the models.
 \chapter{Summary and Outlook}
+
 
 \appendix
 \chapter{Additionally}
