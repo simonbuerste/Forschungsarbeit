@@ -7,15 +7,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib2tikz import save as savetikz
 
-directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/Gumbel_VAE"
+directory = "C:/Users/simon/Documents/Uni_Stuttgart/Forschungsarbeit/Models/LatentSpace"
 
 list_dir = next(os.walk(directory))[1]
 summary = []
 visu_data = []
 datasets = ["MNIST", "F-MNIST", "CIFAR-10", "CIFAR-100", "IMAGENET-Dog", "IMAGENET-10"]
-model_visu = ["Gumbel_VAE"] # "AE", "VAE", "discriminative_AE", "featureselective_AE", "Gumbel_VAE"
+model_visu = ["AE", "VAE"] # "AE", "VAE", "discriminative_AE", "featureselective_AE", "Gumbel_VAE"
 
-metric_visu = ["Accuracy", "NMI"]  # "Accuracy_best", "NMI_best", "ARI_best"
+metric_visu = ["Accuracy", "NMI", "ARI"]  # "Accuracy_best", "NMI_best", "ARI_best"
 
 model_color = {
     "AE":                   'red',
@@ -23,7 +23,7 @@ model_color = {
     "discriminative_AE":    'green',
     "Gumbel_VAE":           'black'}
 
-hyperparameters = ["n_latent", "temperature_gumbel"]  # ["initial_training_rate", "train_batch_size"] ["alpha", "lambda_r"]
+hyperparameters = ["n_latent"] # ["n_latent", "temperature_gumbel"]  ["alpha", "lambda_r"]
 for dataset_visu in datasets:
     for x in list_dir:
         # define the filenames
@@ -131,16 +131,29 @@ for dataset_visu in datasets:
 
     iterator = np.zeros(len(model_visu), dtype=np.int64)
     for _, dict in enumerate(visu_data):
-        for l, model in enumerate(model_visu):
-            if model == dict["latent_model"]:
-                break
+        if dict["dataset"] == dataset_visu:
+            for l, model in enumerate(model_visu):
+                if model == dict["latent_model"]:
+                    break
 
-        i = iterator[l]
-        for j, metric in enumerate(metric_visu):
-            metric_tmp[l][i][j] = dict[metric]
-        for k, param in enumerate(hyperparameters):
-            params_tmp[l][i][k] = dict[param]
-        iterator[l] += 1
+            i = iterator[l]
+            for j, metric in enumerate(metric_visu):
+                metric_tmp[l][i][j] = dict[metric]
+            for k, param in enumerate(hyperparameters):
+                if dict[param] == "step_decay":
+                    dict[param] = 0
+                elif dict[param] == "exponential_decay":
+                    dict[param] = 1
+                elif dict[param] == "triangular":
+                    dict[param] = 2
+                elif dict[param] == "":
+                    dict[param] = 3
+                elif dict[param] is True:
+                    dict[param] = 1
+                elif dict[param] is False:
+                    dict[param] = 2
+                params_tmp[l][i][k] = dict[param]
+            iterator[l] += 1
 
     for l, _ in enumerate(model_visu):
         tmp1 = metric_tmp[l, :, :]
@@ -159,16 +172,20 @@ for dataset_visu in datasets:
                     model_string = model
                 else:
                     model_string = model_string + ' ' + model
+                mean = np.mean(plot_metric[l][:, i])
+                std = np.sqrt(np.sum((plot_metric[l][:, i]-mean)**2)/(len(plot_metric[l][:, i])-1))
+                print('Mean %s of %s at %s: %.4f' % (metric, model, dataset_visu, mean))
+                print('Std %s of %s at %s: %.4f' % (metric, model, dataset_visu, std))
             ax.legend()
             ax.set_xlabel('%s' % hyperparameters[0])
-            #ax.set_ylim(0, 1)
-            #ax.set_yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
+            ax.set_ylim(0, 1)
+            ax.set_yticks([0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1])
             ax.set_ylabel('%s' % metric)
             ax.set_title('%s of %s at %s' % (metric, model_string, dataset_visu))
             savepath = os.path.join(directory, '%s_%s_%s_%s' % (dataset_visu, metric, model_string, hyperparameters[0]))
             savetikz(savepath + '.tex')
             plt.savefig(savepath + '.png')
-            plt.savefig(savepath+'.eps', format = 'eps', dpi = 1000)
+            plt.savefig(savepath+'.eps', format='eps', dpi=1000)
         plt.show(block=True)
     elif len(hyperparameters) == 2:
         for l, model in enumerate(model_visu):
@@ -187,7 +204,7 @@ for dataset_visu in datasets:
                 ax.figure.colorbar(im, ax=ax)
                 ax.set(xticks=np.arange(confusion_matrix.shape[1]),
                        yticks=np.arange(confusion_matrix.shape[0]),
-                       xticklabels=param_values_1, yticklabels=param_values_0,
+                       xticklabels=["step_decay", "exponential_decay", "triangular", "constant"], yticklabels=["true", "false"],
                        title='%s of %s at %s' % (metric, model, dataset_visu),
                        xlabel='%s' % hyperparameters[1], ylabel='%s' % hyperparameters[0])
 
